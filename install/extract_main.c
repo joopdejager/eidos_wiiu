@@ -108,7 +108,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "eidos_extract: %s\n", err);
             return 1;
         }
-        printf("eidos_extract: %lu NARC(s) in %s now in this host's byte order%s\n",
+        printf("eidos_extract: %lu file(s) in %s now in this host's byte order%s\n",
                (unsigned long)n, argv[2], BW_HOST_BIG_ENDIAN ? "" : " (little-endian: none needed)");
         return 0;
     }

@@ -27,23 +27,24 @@
 #include <string.h>
 
 #include "vfs_sdat.h"
+#include "sdat_order.h"
 
 #define KINDS      8
 #define FILE_MAX   (16u * 1024u * 1024u)
 #define IMAGE_MAX  0x7F000000u
 #define ALIGN_FILE 0x20u
 
+/* The archive's numbers, in the data root's order: a big-endian host's
+ * extractor turns its structure (sdk/sdat_order.h), and the merge writes
+ * what it adds the same way. */
 static u32 rd32(const u8 *p)
 {
-    return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24);
+    return bw_dr_rd32(p);
 }
 
 static void wr32(u8 *p, u32 v)
 {
-    p[0] = (u8)v;
-    p[1] = (u8)(v >> 8);
-    p[2] = (u8)(v >> 16);
-    p[3] = (u8)(v >> 24);
+    bw_dr_wr32(p, v);
 }
 
 /* ------------------------------------------------------------------ */
@@ -683,6 +684,14 @@ int bw_vfs_sdat_merge(const u8 *base, u32 base_size, const BwSdatAdd *adds,
         buf_align(&b, ALIGN_FILE);
         items[i].file_off = b.len;
         buf_put(&b, items[i].data, items[i].size);
+#if BW_HOST_BIG_ENDIAN
+        /* A mod's file is the DS's little-endian, as its tools wrote it:
+         * turned like the extractor turned the archive's own. */
+        if (!b.failed && bw_sdat_file_to_host(b.p + items[i].file_off, items[i].size) != 1) {
+            fprintf(stderr, "sdat merge: %s: a malformed sound file\n", items[i].qname);
+            goto fail;
+        }
+#endif
     }
 
     /* 2. INFO: the old block, then new tables and records. */
@@ -716,8 +725,7 @@ int bw_vfs_sdat_merge(const u8 *base, u32 base_size, const BwSdatAdd *adds,
             memset(rec, 0, sizeof(rec));
             wr32(rec, it->file_id);
             if (kind == BW_SDATM_SEQ) {
-                rec[4] = (u8)it->ref_id[0];
-                rec[5] = (u8)(it->ref_id[0] >> 8);
+                bw_dr_wr16(rec + 4, (u16)it->ref_id[0]);
                 rec[6] = (u8)it->e->volume;
                 rec[7] = (u8)it->e->cpr;
                 rec[8] = (u8)it->e->ppr;
@@ -725,8 +733,7 @@ int bw_vfs_sdat_merge(const u8 *base, u32 base_size, const BwSdatAdd *adds,
             } else if (kind == BW_SDATM_BANK) {
                 for (r = 0; r < 4; r++) {
                     u32 v = r < it->e->nrefs ? it->ref_id[r] : 0xFFFFu;
-                    rec[4 + r * 2] = (u8)v;
-                    rec[5 + r * 2] = (u8)(v >> 8);
+                    bw_dr_wr16(rec + 4 + r * 2, (u16)v);
                 }
             }
             buf_align(&b, 4);

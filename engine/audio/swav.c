@@ -27,11 +27,14 @@
 
 #include <string.h>
 
-static u16 rd16(const u8 *p) { return (u16)(p[0] | (p[1] << 8)); }
-static u32 rd32(const u8 *p)
-{
-    return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24);
-}
+/* The archive's table and each wave's header, in the data root's order
+ * (sdk/sdat_order.h: a big-endian host's extractor turns them, as the
+ * matched code reads them). */
+static u16 rd16(const u8 *p) { return bw_dr_rd16(p); }
+static u32 rd32(const u8 *p) { return bw_dr_rd32(p); }
+
+/* The samples, which nothing turns: the DS's little-endian. */
+static u16 sample16(const u8 *p) { return bw_rd16(p); }
 
 static const s32 bw_ima_step[89] = {
     7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31,
@@ -115,10 +118,10 @@ size_t bw_swav_decode(const BwSwav *w, s16 *out, size_t cap)
         for (i = 0; i < n; i++) out[i] = (s16)((s8)w->sample_data[i] * 256);
         return n;
     case BW_WAVE_PCM16:
-        for (i = 0; i < n; i++) out[i] = (s16)rd16(w->sample_data + i * 2);
+        for (i = 0; i < n; i++) out[i] = (s16)sample16(w->sample_data + i * 2);
         return n;
     case BW_WAVE_ADPCM: {
-        s32 predictor = (s16)rd16(w->sample_data);
+        s32 predictor = (s16)sample16(w->sample_data);
         s32 index = clamp_s32(w->sample_data[2], 0, 88);
         const u8 *nib = w->sample_data + 4;
         for (i = 0; i < n; i++) {

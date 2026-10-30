@@ -40,6 +40,7 @@
 #include "arm7/arm7.h"
 #include "arm7/snd.h"
 #include "arm7/snd_seq.h"
+#include "sdat_order.h"
 
 #include <math.h>
 #include <stdint.h>
@@ -239,6 +240,16 @@ static int lowest_bit(u32 v)
 /* Synthetic data                                                      */
 /* ------------------------------------------------------------------ */
 
+/* A file built in the cartridge's order, turned as the extractor turns the
+ * archive's (sdk/sdat_order.h): what the game finds once it loaded one. */
+static void to_host(u8 *f, u32 size)
+{
+    if (bw_sdat_file_to_host(f, size) != 1) {
+        printf("  FAIL a synthetic sound file does not parse\n");
+        bw_failures++;
+    }
+}
+
 static void nitro_header(u8 *f, const char *magic, u32 size)
 {
     memcpy(f, magic, 4);
@@ -277,6 +288,7 @@ static u32 make_sbnk(u8 *f)
         wr32(f + 0x3C + 4 * i, types[i] | ((0x4Cu + 10 * i) << 8));
         region(f + 0x4C + 10 * i, waves[i], 0, 60, 64);
     }
+    to_host(f, size);
     return size;
 }
 
@@ -308,6 +320,7 @@ static u32 make_swar(u8 *f)
     wr32(f + w1 + 8, 128);
     for (i = 0; i < 256; i++)
         wr16(f + w1 + 12 + 2 * i, (u32)(u16)(s16)((int)(i % 32) * 900 - 14000));
+    to_host(f, size);
     return size;
 }
 
@@ -324,8 +337,9 @@ static void load_bank(void)
     g_bank.wave = ds_mem(DS_WAVE, 0x1000);
     g_bank.bank_size = make_sbnk(g_bank.bank);
     g_bank.wave_size = make_swar(g_bank.wave);
-    /* SND_AssignWaveArc's effect on the bank: waveArcLink[0].waveArc. */
-    wr32(g_bank.bank + 0x18, DS_WAVE);
+    /* SND_AssignWaveArc's effect on the bank: waveArcLink[0].waveArc, a
+     * native store. */
+    bw_mem_wr32(g_bank.bank + 0x18, DS_WAVE);
 }
 
 /* Write an SSEQ around `body` in player `player`'s slot.  Returns the DS
@@ -338,6 +352,7 @@ static u32 load_seq(int player, const u8 *body, u32 n)
     nitro_header(f, "SSEQ", size);
     wr32(f + 0x18, 0x1C);
     memcpy(f + 0x1C, body, n);
+    to_host(f, size);
     return ds + 0x1C;
 }
 
@@ -1236,14 +1251,14 @@ static int load_real(const BwSdat *sd, u32 seq, Loaded *l)
         return -1;
     for (i = 0; i < 4; i++) {
         u8 *arc;
-        wr32(l->bank + 0x18 + 8 * i, 0);
-        wr32(l->bank + 0x1C + 8 * i, 0);
+        bw_mem_wr32(l->bank + 0x18 + 8 * i, 0);      /* the game's own stores */
+        bw_mem_wr32(l->bank + 0x1C + 8 * i, 0);
         if (brec.wave_arc[i] == 0xFFFF || bw_sdat_wavarc_fileid(sd, brec.wave_arc[i], &file_id) != 0)
             continue;
         arc = load_file(sd, file_id, at, &size);
         if (arc == NULL)
             continue;
-        wr32(l->bank + 0x18 + 8 * i, at);
+        bw_mem_wr32(l->bank + 0x18 + 8 * i, at);
         at += (size + 0xFFFu) & ~0xFFFu;
     }
     return 0;

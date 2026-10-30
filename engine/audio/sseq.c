@@ -51,8 +51,8 @@ int bw_sseq_open(BwSseq *q, BwBlob blob)
     if (memcmp(blob.data + 0x10, "DATA", 4) != 0) return -1;
     q->data = blob.data;
     q->size = blob.size;
-    q->data_offset = (u32)blob.data[0x18] | ((u32)blob.data[0x19] << 8)
-                   | ((u32)blob.data[0x1A] << 16) | ((u32)blob.data[0x1B] << 24);
+    /* In the data root's order (sdk/sdat_order.h); the bytecode is bytes. */
+    q->data_offset = bw_dr_rd32(blob.data + 0x18);
     return 0;
 }
 

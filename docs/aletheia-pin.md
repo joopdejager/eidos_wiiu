@@ -8,12 +8,18 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `2fdfac0dfa680d201a8d75290ed4b0dd01b69b75`
+- Revision: `29bd76496c1b406e0052f018fbd68e1e959068ca`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-10-30 15:09:55 +0000
-- Subject: A NARC's two-byte file count reads into a halfword on a host
+- Date: 2026-10-30 21:43:40 +0000
+- Subject: NNSSndArcWaveArcInfo's file id is the word's low 24 bits on a big-endian host
 
-The step from `17086227f7`: ARC_TOOL_SeekMember, ARC_TOOL_GetArchiveFileCount,
+The step from `2fdfac0df`: the wave archive info word's bit-fields
+(fileId:24, isIndividual:1, reserved:7) are declared the other way round
+on a big-endian host, whose compiler fills bit-fields from the high bit, so
+fileId is the word's low 24 bits there too. The DS source is unchanged (the
+DS order stays under `__MWERKS__`).
+
+The step before, from `17086227f7`: ARC_TOOL_SeekMember, ARC_TOOL_GetArchiveFileCount,
 unit_02048DDC and func_02049030 read a NARC's two-byte BTAF count into a
 zeroed u32, which a big-endian host fills from its high half. The host
 branch reads a u16 and widens it. The DS source is unchanged (the u32 read

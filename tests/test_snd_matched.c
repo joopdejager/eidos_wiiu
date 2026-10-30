@@ -32,6 +32,7 @@
 #include "pxi.h"
 #include "arm7/arm7.h"
 #include "arm7/snd.h"
+#include "sdat_order.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -247,6 +248,12 @@ static int make_data(void)
     wr32(g_wave + 0x48, 16);
     for (i = 0; i < 64; i++)
         g_wave[0x4C + i] = (u8)(s8)((i & 15) * 12 - 90);
+    /* Built in the cartridge's order, turned as the extractor turns the
+     * archive's files (sdk/sdat_order.h): what the game finds once loaded. */
+    if (bw_sdat_file_to_host(g_seq, g_seq_size) != 1
+        || bw_sdat_file_to_host(g_bank, g_bank_size) != 1
+        || bw_sdat_file_to_host(g_wave, g_wave_size) != 1)
+        return -1;
     return 0;
 }
 
@@ -293,7 +300,7 @@ int main(void)
     REQ("data", make_data() == 0);
     SND_AssignWaveArc(g_bank, 0, g_wave);
     BW_CHECK_EQ("bank: waveArcLink[0].waveArc",
-                bw_rd32(g_bank + 0x18), (u32)(uintptr_t)g_wave);
+                bw_mem_rd32(g_bank + 0x18), (u32)(uintptr_t)g_wave);
 
     /* SND_PrepareSeq, then SND_StartPreparedSeq's command, one flush. */
     SND_PrepareSeq(4, g_seq + 0x1C, 0, g_bank);

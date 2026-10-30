@@ -209,8 +209,9 @@ static inline void bw_mem_wr32(u8 *p, u32 v)
 /*
  * A number in the data root that the extractor turns into the host's order
  * on a big-endian host (install/byteorder.c), because the matched code
- * reads it with native loads: a NARC's framing (header, BTAF, BTNF) and the
- * formats byteorder.c lists (message banks).  The port reads and writes
+ * reads it with native loads: a NARC's framing (header, BTAF, BTNF), the
+ * formats byteorder.c lists (message banks) and the sound archive's
+ * structure (sdk/sdat_order.h).  The port reads and writes
  * those in the host's order too.  The four-byte tags stay bytes (bw_rd32
  * against a FOURCC), and every other format is still the cartridge's
  * little-endian.
@@ -220,8 +221,9 @@ static inline void bw_mem_wr32(u8 *p, u32 v)
  * extractor turned is refused instead of read half in each order:
  *   1  NARC framing
  *   2  and message banks (a/0/0/2, a/0/0/3)
+ *   3  and the sound archive (wb_sound_data.sdat)
  */
-#define BW_BYTE_ORDER_MARK "big-endian 2"
+#define BW_BYTE_ORDER_MARK "big-endian 3"
 
 #define bw_dr_rd16 bw_mem_rd16
 #define bw_dr_rd32 bw_mem_rd32

@@ -269,7 +269,7 @@ int bw_narc_to_host(u8 *p, u32 n);
  * malformed. */
 int bw_msg_to_host(u8 *p, u32 n);
 
-/* Every NARC under extract_dir/data into the host's order and the marker
+/* Every NARC and SDAT under extract_dir/data into the host's order and the marker
  * written, on a big-endian host; nothing on a little-endian one.  Refuses a
  * tree that already has the marker.  0 on success, -1 with `err` filled. */
 int bw_tree_to_host_order(const char *extract_dir, u32 *converted,

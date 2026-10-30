@@ -21,6 +21,9 @@
  *
  * The formats:
  *
+ *   wb_sound_data.sdat, and any SDAT: the sound archive's structure
+ *   (sdk/sdat_order.h, bw_sdat_to_host).
+ *
  *   a/0/0/2, a/0/0/3, and member 1 of a/1/1/1..a/1/1/4 (the musicals'
  *   stages): message banks (src/game/arm9/msgdata.c), read by
  *   MSGDATA_LoadFileHeader, MSGDATA_LoadBank and MSGDATA_ReadUnits with
@@ -40,6 +43,7 @@
 #include <string.h>
 
 #include "install.h"
+#include "sdat_order.h"
 
 #if !defined(_WIN32)
 #include <dirent.h>
@@ -157,6 +161,55 @@ int bw_msg_to_host(u8 *p, u32 n)
     return 1;
 }
 
+int bw_narc_to_host(u8 *p, u32 n)
+{
+    u32 pos, sections, s;
+
+    if (n < 16 || memcmp(p, "NARC", 4) != 0) {
+        return 0;
+    }
+    pos = le16(p + 12);
+    sections = le16(p + 14);
+    if (pos < 16 || pos > n) {
+        return -1;
+    }
+    for (s = 0; s < sections && pos + 8u <= n; s++) {
+        u8 *c = p + pos;
+        u32 size = le32(c + 4);
+
+        if (size < 8 || size > n - pos) {
+            return -1;
+        }
+        if (memcmp(c, "BTAF", 4) == 0) {
+            u32 count = le16(c + 8), i;
+
+            if (size < 12 || (u64)count * 8u > size - 12u) {
+                return -1;
+            }
+            for (i = 0; i < count; i++) {
+                fix32(c + 12 + 8u * i);
+                fix32(c + 16 + 8u * i);
+            }
+            fix16(c + 8);
+            fix16(c + 10);
+        } else if (memcmp(c, "BTNF", 4) == 0) {
+            if (fnt_to_host(c + 8, size - 8u) != 0) {
+                return -1;
+            }
+        }
+        fix32(c + 4);
+        pos += size;
+    }
+    fix16(p + 4);
+    fix16(p + 6);
+    fix32(p + 8);
+    fix16(p + 12);
+    fix16(p + 14);
+    return 1;
+}
+
+#if BW_HOST_BIG_ENDIAN && !defined(_WIN32)
+
 /* The members of the little-endian NARC at `p` given to `fn`: every one,
  * or only member `only` when it is not -1. */
 static int narc_members_to_host(u8 *p, u32 n, int (*fn)(u8 *, u32), int only)
@@ -225,60 +278,30 @@ static const struct {
     { "a/1/1/4", 1, bw_msg_to_host, "malformed message bank" },
 };
 
-int bw_narc_to_host(u8 *p, u32 n)
-{
-    u32 pos, sections, s;
-
-    if (n < 16 || memcmp(p, "NARC", 4) != 0) {
-        return 0;
-    }
-    pos = le16(p + 12);
-    sections = le16(p + 14);
-    if (pos < 16 || pos > n) {
-        return -1;
-    }
-    for (s = 0; s < sections && pos + 8u <= n; s++) {
-        u8 *c = p + pos;
-        u32 size = le32(c + 4);
-
-        if (size < 8 || size > n - pos) {
-            return -1;
-        }
-        if (memcmp(c, "BTAF", 4) == 0) {
-            u32 count = le16(c + 8), i;
-
-            if (size < 12 || (u64)count * 8u > size - 12u) {
-                return -1;
-            }
-            for (i = 0; i < count; i++) {
-                fix32(c + 12 + 8u * i);
-                fix32(c + 16 + 8u * i);
-            }
-            fix16(c + 8);
-            fix16(c + 10);
-        } else if (memcmp(c, "BTNF", 4) == 0) {
-            if (fnt_to_host(c + 8, size - 8u) != 0) {
-                return -1;
-            }
-        }
-        fix32(c + 4);
-        pos += size;
-    }
-    fix16(p + 4);
-    fix16(p + 6);
-    fix32(p + 8);
-    fix16(p + 12);
-    fix16(p + 14);
-    return 1;
-}
-
-#if BW_HOST_BIG_ENDIAN && !defined(_WIN32)
 
 static void say(char *err, size_t err_len, const char *what, const char *path)
 {
     if (err != NULL && err_len != 0) {
         snprintf(err, err_len, "%s: %s", what, path);
     }
+}
+
+/* One file of the tree, `rel` under data/, read into `buf`: NULL when it is
+ * turned, else what is wrong with it. */
+static const char *buffer_to_host(const char *rel, u8 *buf, u32 size)
+{
+    size_t k;
+
+    if (memcmp(buf, "SDAT", 4) == 0) {
+        return bw_sdat_to_host(buf, size) == 1 ? NULL : "malformed sound archive";
+    }
+    for (k = 0; k < sizeof(k_formats) / sizeof(k_formats[0]); k++) {
+        if (strcmp(rel, k_formats[k].path) == 0
+            && narc_members_to_host(buf, size, k_formats[k].fn, k_formats[k].member) != 0) {
+            return k_formats[k].what;
+        }
+    }
+    return bw_narc_to_host(buf, size) < 0 ? "malformed NARC" : NULL;
 }
 
 static int file_to_host(const char *path, const char *rel, u32 *converted,
@@ -288,13 +311,14 @@ static int file_to_host(const char *path, const char *rel, u32 *converted,
     u8 head[4];
     u8 *buf;
     long size;
-    int rc;
+    const char *what;
 
     if (fp == NULL) {
         say(err, err_len, "cannot read", path);
         return -1;
     }
-    if (fread(head, 1, 4, fp) != 4 || memcmp(head, "NARC", 4) != 0) {
+    if (fread(head, 1, 4, fp) != 4
+        || (memcmp(head, "NARC", 4) != 0 && memcmp(head, "SDAT", 4) != 0)) {
         fclose(fp);
         return 0;
     }
@@ -311,19 +335,9 @@ static int file_to_host(const char *path, const char *rel, u32 *converted,
         return -1;
     }
     fclose(fp);
-    for (rc = 0; rc < (int)(sizeof(k_formats) / sizeof(k_formats[0])); rc++) {
-        if (strcmp(rel, k_formats[rc].path) == 0
-            && narc_members_to_host(buf, (u32)size, k_formats[rc].fn,
-                                    k_formats[rc].member) != 0) {
-            free(buf);
-            say(err, err_len, k_formats[rc].what, path);
-            return -1;
-        }
-    }
-    rc = bw_narc_to_host(buf, (u32)size);
-    if (rc < 0) {
+    if ((what = buffer_to_host(rel, buf, (u32)size)) != NULL) {
         free(buf);
-        say(err, err_len, "malformed NARC", path);
+        say(err, err_len, what, path);
         return -1;
     }
     if ((fp = fopen(path, "wb")) == NULL

@@ -445,8 +445,8 @@ static int read_param(const BwBlob *b, size_t off, int type, Inst *out)
         return -1;
     d = b->data + off;
     out->type = type;
-    out->wave = bw_rd16(d);
-    out->arc = bw_rd16(d + 2);
+    out->wave = bw_dr_rd16(d);          /* in the data root's order (sdk/sdat_order.h) */
+    out->arc = bw_dr_rd16(d + 2);
     out->original_key = d[4];
     out->attack = d[5];
     out->decay = d[6];
@@ -468,10 +468,10 @@ static int resolve_inst(const BwSndSeqBank *bank, int prg, int key, Inst *out)
 
     if (b->data == NULL || b->size < 0x3C)
         return -1;
-    count = bw_rd32(b->data + 0x38);
+    count = bw_dr_rd32(b->data + 0x38);
     if (prg < 0 || (u32)prg >= count || 0x3C + ((size_t)prg + 1) * 4 > b->size)
         return -1;
-    entry = bw_rd32(b->data + 0x3C + (size_t)prg * 4);
+    entry = bw_dr_rd32(b->data + 0x3C + (size_t)prg * 4);
     type = entry & 0xFFu;
     off = entry >> 8;
     if (type >= 1 && type <= 3)

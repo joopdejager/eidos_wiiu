@@ -208,3 +208,32 @@ an alarm started with the channel by one `START_TIMER`) plays.
 `SEQ_SE_DECIDE2` and `SEQ_BGM_GYM` from main RAM and streams one of GYM's
 own waves through a ring buffer, which must equal the wave played in one
 piece sample for sample. The SDAT has no STRM entries.
+
+## Byte order on a big-endian host
+
+The matched sound code reads the archive's structure with native loads:
+`NNS_SndArcInit` the SDAT header, the `NNS_SndArcGet*Info` accessors the
+INFO tables and records, `NNS_SndArcGetFileSize` and the loaders the FAT,
+the players an SSEQ's data offset, `SND_GetNextInstData` an SBNK's
+instrument table and records, `SND_GetWaveDataAddress` a SWAR's wave
+table, and `PM_VOICE_LoadWave` (the cries) a SWAV's rate and timer. So on a
+big-endian host (the Wii U) the extractor turns every number of that
+structure into the host's order (`sdk/sdat_order.c`; the full list is in
+`sdk/sdat_order.h`), and the mods' sound merge turns the files it appends
+the same way. What stays bytes: the tags and strings, the sequence
+bytecode (read a byte at a time by both sequencers), an instrument entry's
+type byte, and the samples, which only the sound hardware model reads, in
+the DS's little-endian order (`sdk/arm7/snd_hw.c`).
+
+The port's readers follow: `engine/audio` and the ARM7 driver read the
+turned numbers with `bw_dr_rd16` / `bw_dr_rd32` (`sdk/types.h`), and the
+samples with `bw_rd16`. A bank's `waveArcLink` slots are not file data at
+all: `SND_AssignWaveArc` stores the wave archives' addresses there at run
+time with native stores, so the driver reads them with `bw_mem_rd32`.
+
+One record needs a decomp change: `NNSSndArcWaveArcInfo` is a word with
+the bit-fields `fileId : 24`, `isIndividual : 1`, `reserved : 7`, which a
+big-endian host's compiler fills from the high bit. Under that host
+`src/game/arm9/nns_snd_arc_types.h` declares them the other way round, so
+`fileId` is the word's low 24 bits there too (archived in aletheia's
+`docs/ORIGINAL_BUGS.tsv`).

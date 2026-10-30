@@ -20,15 +20,14 @@
 #include <string.h>
 
 /* ------------------------------------------------------------------ */
-/* Little-endian readers.  The DS is little-endian and so is every host
- * eidos targets, but a byte-wise read is free here and cannot be wrong. */
+/* The archive's numbers, in the data root's order: a big-endian host's
+ * extractor turns the whole structure (sdk/sdat_order.h), so these read it
+ * as the matched code does, and the cartridge's order on a little-endian
+ * host. */
 /* ------------------------------------------------------------------ */
 
-static u16 rd16(const u8 *p) { return (u16)(p[0] | (p[1] << 8)); }
-static u32 rd32(const u8 *p)
-{
-    return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24);
-}
+static u16 rd16(const u8 *p) { return bw_dr_rd16(p); }
+static u32 rd32(const u8 *p) { return bw_dr_rd32(p); }
 
 static int section(const u8 *data, size_t size, u32 pos, const char *magic,
                    const u8 **body, size_t *body_size)
@@ -231,7 +230,7 @@ int bw_sdat_bank_record(const BwSdat *s, u32 index, BwSdatBankRecord *out)
     u32 p = info_ptr(s, BW_SDAT_BANK, index, 12);
     int i;
     if (p == 0) return -1;
-    out->file_id = rd16(s->info + p);
+    out->file_id = rd32(s->info + p);
     for (i = 0; i < 4; i++) out->wave_arc[i] = rd16(s->info + p + 4 + i * 2);
     return 0;
 }

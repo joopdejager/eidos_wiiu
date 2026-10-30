@@ -251,7 +251,7 @@ static int file_blob(u64 value, const char *magic, size_t min_size, BwBlob *out)
         return -1;
     if (memcmp(h, magic, 4) != 0)
         return -1;
-    size = bw_rd32(h + 8);
+    size = bw_dr_rd32(h + 8);           /* the file's size (sdk/sdat_order.h) */
     if (size < min_size)
         return -1;
     if (avail != 0 && size > avail)
@@ -275,9 +275,9 @@ static int seq_blob(u64 value, BwBlob *out)
         return -1;
     if (readable_before(h, 0x1C)) {
         const u8 *f = h - 0x1C;
-        if (memcmp(f, "SSEQ", 4) == 0 && bw_rd32(f + 0x18) == 0x1C
-            && bw_rd32(f + 8) > 0x1C) {
-            u32 size = bw_rd32(f + 8) - 0x1C;
+        if (memcmp(f, "SSEQ", 4) == 0 && bw_dr_rd32(f + 0x18) == 0x1C
+            && bw_dr_rd32(f + 8) > 0x1C) {
+            u32 size = bw_dr_rd32(f + 8) - 0x1C;
             if (avail != 0 && size > avail)
                 size = (u32)avail;
             out->data = h;
@@ -314,8 +314,9 @@ static int bank_of(u64 value, BwSndSeqBank *bank)
     if (file_blob(value, "SBNK", 0x3C, &bank->sbnk) != 0)
         return -1;
     for (i = 0; i < 4; i++) {
-        /* waveArcLink[i].waveArc, a DS-width pointer slot. */
-        u32 arc = bw_rd32(bank->sbnk.data + 0x18 + 8 * i);
+        /* waveArcLink[i].waveArc, a DS-width pointer slot the game's
+         * SND_AssignWaveArc stored with a native store. */
+        u32 arc = bw_mem_rd32(bank->sbnk.data + 0x18 + 8 * i);
         if (arc != 0)
             (void)file_blob(arc, "SWAR", 0x3C, &bank->arc[i]);
     }

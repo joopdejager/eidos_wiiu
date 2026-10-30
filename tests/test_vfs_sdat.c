@@ -22,6 +22,7 @@
 
 #include "audio.h"
 #include "vfs_sdat.h"
+#include "sdat_order.h"
 #include "port_test.h"
 
 static void put32(u8 *p, u32 v)
@@ -55,7 +56,10 @@ static const char *g_names[8][2] = {
 };
 static const u32 g_counts[8] = { 2, 0, 2, 2, 1, 0, 0, 0 };
 
-/* A file's bytes: 4-byte magic, then a pattern from a seed. */
+/* A file's bytes, in the cartridge's order: for SSEQ, SBNK and SWAR the
+ * smallest well-formed file (the header, the DATA block, the data offset or
+ * an empty table) with a pattern from a seed behind it; for another magic
+ * the magic and the pattern. */
 static u32 make_file(u8 *dst, const char *magic, u8 seed, u32 len)
 {
     u32 i;
@@ -63,7 +67,37 @@ static u32 make_file(u8 *dst, const char *magic, u8 seed, u32 len)
     for (i = 4; i < len; i++) {
         dst[i] = (u8)(seed * 13u + i * 5u);
     }
+    if (strcmp(magic, "SSEQ") == 0 || strcmp(magic, "SBNK") == 0
+        || strcmp(magic, "SWAR") == 0) {
+        put16(dst + 4, 0xFEFF);
+        put16(dst + 6, 0x0100);
+        put32(dst + 8, len);
+        put16(dst + 12, 0x10);
+        put16(dst + 14, 1);
+        memcpy(dst + 0x10, "DATA", 4);
+        put32(dst + 0x14, len - 0x10);
+        if (strcmp(magic, "SSEQ") == 0) {
+            put32(dst + 0x18, 0x1C);
+        } else {
+            memset(dst + 0x18, 0, 0x20);
+            put32(dst + 0x38, 0);
+        }
+    }
     return len;
+}
+
+/* `n` bytes of a mod's file as the merge leaves them in the archive: turned
+ * into the host's order (sdk/sdat_order.h), the same bytes on a
+ * little-endian host. */
+static const u8 *as_merged(const u8 *f, u32 n)
+{
+    static u8 copy[128];
+
+    if (n > sizeof(copy)) {
+        return NULL;
+    }
+    memcpy(copy, f, n);
+    return bw_sdat_file_to_host(copy, n) == 1 ? copy : NULL;
 }
 
 static void build_tiny(Tiny *t)
@@ -71,7 +105,7 @@ static void build_tiny(Tiny *t)
     u8 *d = t->d;
     u32 symb = 0x40, symb_size, info, info_size, fat, fat_size, file, k, i, pos, recs;
     u32 tab[8], stab[8], str, fpos;
-    u32 file_len[6] = { 32, 36, 40, 44, 48, 52 };
+    u32 file_len[6] = { 32, 36, 64, 68, 72, 76 };
     const char *magics[6] = { "SSEQ", "SSEQ", "SBNK", "SBNK", "SWAR", "SWAR" };
 
     memset(t, 0, sizeof(*t));
@@ -172,6 +206,11 @@ static void build_tiny(Tiny *t)
     put32(d + 0x24, fat_size);
     put32(d + 0x28, file);
     put32(d + 0x2C, fpos - file);
+    /* As the extractor leaves it in the data root. */
+    if (bw_sdat_to_host(d, t->size) != 1) {
+        printf("  FAIL the synthetic archive does not parse\n");
+        bw_failures++;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -184,10 +223,8 @@ static int in_range(u32 i, u32 lo, u32 hi) { return i >= lo && i < hi; }
  * the size and table-offset fields at the head of INFO and SYMB. */
 static int bytes_preserved(const u8 *base, u32 bs, const u8 *out)
 {
-    u32 info = (u32)base[0x18] | ((u32)base[0x19] << 8) | ((u32)base[0x1A] << 16)
-             | ((u32)base[0x1B] << 24);
-    u32 symb = (u32)base[0x10] | ((u32)base[0x11] << 8) | ((u32)base[0x12] << 16)
-             | ((u32)base[0x13] << 24);
+    u32 info = bw_dr_rd32(base + 0x18);
+    u32 symb = bw_dr_rd32(base + 0x10);
     u32 i, bad = 0;
 
     for (i = 0; i < bs; i++) {
@@ -314,7 +351,7 @@ static int test_parse(void)
 static int test_synthetic(void)
 {
     static Tiny t;
-    u8 fa_w[40], fa_b[44], fa_s[48], fb_s2[36], fb_s3[36], bad[40];
+    u8 fa_w[72], fa_b[64], fa_s[48], fb_s2[36], fb_s3[36], bad[40];
     BwSdatDecl da, db;
     char err[200];
     BwSdatFile files_a[3], files_b[2];
@@ -356,8 +393,7 @@ static int test_synthetic(void)
     BW_REQUIRE("open base", bw_sdat_open(&orig, t.d, t.size) == 0);
     BW_REQUIRE("open merged", bw_sdat_open(&o, out, out_size) == 0);
 
-    BW_CHECK_EQ("header file size", (long)((u32)out[8] | ((u32)out[9] << 8) | ((u32)out[10] << 16)
-                                          | ((u32)out[11] << 24)), (long)out_size);
+    BW_CHECK_EQ("header file size", (long)bw_dr_rd32(out + 8), (long)out_size);
     BW_CHECK_EQ("seq count", bw_sdat_count(&o, BW_SDAT_SEQ), 5);
     BW_CHECK_EQ("bank count", bw_sdat_count(&o, BW_SDAT_BANK), 3);
     BW_CHECK_EQ("wavarc count", bw_sdat_count(&o, BW_SDAT_WAVARC), 3);
@@ -409,13 +445,13 @@ static int test_synthetic(void)
     /* File bytes. */
     BW_REQUIRE("w1 bytes", bw_sdat_raw_file(&o, 6, &blob) == 0);
     BW_CHECK_EQ("w1 size", blob.size, sizeof(fa_w));
-    CHECK("w1 content", memcmp(blob.data, fa_w, sizeof(fa_w)) == 0);
+    CHECK("w1 content", memcmp(blob.data, as_merged(fa_w, sizeof(fa_w)), sizeof(fa_w)) == 0);
     BW_REQUIRE("b1 bytes", bw_sdat_raw_file(&o, 7, &blob) == 0);
-    CHECK("b1 content", blob.size == sizeof(fa_b) && memcmp(blob.data, fa_b, sizeof(fa_b)) == 0);
+    CHECK("b1 content", blob.size == sizeof(fa_b) && memcmp(blob.data, as_merged(fa_b, sizeof(fa_b)), sizeof(fa_b)) == 0);
     BW_REQUIRE("s1 bytes", bw_sdat_raw_file(&o, 8, &blob) == 0);
-    CHECK("s1 content", blob.size == sizeof(fa_s) && memcmp(blob.data, fa_s, sizeof(fa_s)) == 0);
+    CHECK("s1 content", blob.size == sizeof(fa_s) && memcmp(blob.data, as_merged(fa_s, sizeof(fa_s)), sizeof(fa_s)) == 0);
     BW_REQUIRE("s3 bytes", bw_sdat_raw_file(&o, 10, &blob) == 0);
-    CHECK("s3 content", blob.size == sizeof(fb_s3) && memcmp(blob.data, fb_s3, sizeof(fb_s3)) == 0);
+    CHECK("s3 content", blob.size == sizeof(fb_s3) && memcmp(blob.data, as_merged(fb_s3, sizeof(fb_s3)), sizeof(fb_s3)) == 0);
     for (k = 6; k < 11; k++) {
         BW_REQUIRE("new file", bw_sdat_raw_file(&o, k, &blob) == 0);
         CHECK("new file after old data", (size_t)(blob.data - out) >= t.size);
@@ -547,7 +583,7 @@ static int test_real(const char *root)
     BW_CHECK_EQ("real new volume", sr.volume, 90);
     BW_CHECK_EQ("real new file id", sr.file_id, nfat + 2);
     BW_REQUIRE("real new file", bw_sdat_raw_file(&o, sr.file_id, &blob) == 0);
-    CHECK("real new file bytes", blob.size == sizeof(s) && memcmp(blob.data, s, sizeof(s)) == 0);
+    CHECK("real new file bytes", blob.size == sizeof(s) && memcmp(blob.data, as_merged(s, sizeof(s)), sizeof(s)) == 0);
 
     bw_sdat_close(&o);
     bw_sdat_close(&orig);
