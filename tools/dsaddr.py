@@ -97,7 +97,41 @@ PRELUDE_DECL_WIDTH = "void *bw_ds_ptr_w(unsigned int, unsigned int);"
 # --sso: the game's structs and unions in the DS byte and bitfield order
 # (sdk/bw_sso.h), for a big-endian target.
 SSO = False
-PRELUDE_SSO = '#include "bw_sso.h"'
+PRELUDE_SSO = '#include <bw_sso.h>'
+# The struct tags --sso keeps in host order (tools/sso_native.txt).
+SSO_NATIVE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "sso_native.txt")
+_SSO_NATIVE_RE = None
+_SSO_HEADERS = None
+_INCLUDE_LINE_RE = re.compile(r'^[ \t]*#[ \t]*include[ \t]*"([^"]+)"[^\n]*$', re.M)
+
+
+def _sso_native(src, name):
+    """src with each listed tag's struct definition, and each listed
+    header's #include, in host order."""
+    global _SSO_NATIVE_RE, _SSO_HEADERS
+    if _SSO_NATIVE_RE is None:
+        tags, _SSO_HEADERS = [], []
+        with open(SSO_NATIVE_FILE, encoding="utf-8") as f:
+            for line in f:
+                line = line.split("#", 1)[0].split()
+                if len(line) >= 2 and line[0] == "header":
+                    _SSO_HEADERS.append(line[1])
+                elif line:
+                    tags.append(re.escape(line[0]))
+        _SSO_NATIVE_RE = re.compile(r"\bstruct\s+(%s)(\s*\{)" % "|".join(tags))
+    src = _SSO_NATIVE_RE.sub(
+        r'struct __attribute__((scalar_storage_order("big-endian"))) \1\2', src)
+
+    def wrap(m):
+        if not any(m.group(1).endswith(h) for h in _SSO_HEADERS):
+            return m.group(0)
+        line = src.count("\n", 0, m.start()) + 1
+        shown = name.replace("\\", "/").replace('"', '\\"')
+        return ("#pragma scalar_storage_order default\n%s\n"
+                "#pragma scalar_storage_order little-endian\n#line %d \"%s\""
+                % (m.group(0), line + 1, shown))
+    return _INCLUDE_LINE_RE.sub(wrap, src) if _SSO_HEADERS else src
 
 QUALIFIERS = {"const", "volatile", "restrict", "__restrict", "__volatile__"}
 # Identifiers that cannot end a type name; a parenthesised group made of
@@ -998,8 +1032,16 @@ def rewrite(src: str, name: str):
     """The rewritten text of `src` (identical when there is nothing to
     rewrite) and the analysis behind it."""
     src = _IOREG_ADDR_RE.sub(r"\1", src)
+    if SSO:
+        src = _sso_native(src, name)
     rewrites, residue = analyse(src)
     if not rewrites:
+        if SSO and name.endswith(".c"):
+            # Every game source needs the storage order, rewrites or not
+            # (a header gets it from the source that includes it).
+            shown = name.replace("\\", "/").replace('"', '\\"')
+            return ("%s\n#line 1 \"%s\"\n" % (PRELUDE_SSO, shown) + src,
+                    rewrites, residue)
         return src, rewrites, residue
     parts, pos = [], 0
     for s in rewrites:
@@ -1016,7 +1058,8 @@ def rewrite(src: str, name: str):
     shown = name.replace("\\", "/").replace('"', '\\"')
     prelude = ("/* tools/dsaddr.py: fixed DS addresses go through bw_ds_ptr */\n"
                "%s\n#line 1 \"%s\"\n"
-               % ((PRELUDE_SSO + "\n" if SSO else "") + PRELUDE_DECL
+               % ((PRELUDE_SSO + "\n" if SSO and name.endswith(".c") else "")
+                  + PRELUDE_DECL
                   + ("\n" + PRELUDE_DECL_WIDTH if WIDTH else ""), shown))
     return prelude + body, rewrites, residue
 

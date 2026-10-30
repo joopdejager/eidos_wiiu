@@ -268,7 +268,7 @@ function(eidos_overlays name)
         add_custom_command(
             OUTPUT ${copy}
             COMMAND ${Python3_EXECUTABLE} ${EIDOS_DSADDR_TOOL} ${src} -o ${copy} --name ${src} ${EIDOS_DSADDR_FLAGS} ${cut_args}
-            DEPENDS ${src} ${EIDOS_DSADDR_TOOL} ${cut_dep}
+            DEPENDS ${src} ${EIDOS_DSADDR_TOOL} ${EIDOS_SSO_NATIVE} ${cut_dep}
             COMMENT "dsaddr ${rel} (overlays ${name})"
             VERBATIM)
         if(MSVC)
