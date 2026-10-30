@@ -35,6 +35,8 @@ get_filename_component(EIDOS_ARMDATA_TOOL "${EIDOS_ARMDATA_TOOL}" ABSOLUTE)
 set(EIDOS_ARMDATA_EXCLUSIONS ${CMAKE_CURRENT_LIST_DIR}/../tools/armdata_exclusions.txt)
 get_filename_component(EIDOS_ARMDATA_EXCLUSIONS "${EIDOS_ARMDATA_EXCLUSIONS}" ABSOLUTE)
 get_filename_component(EIDOS_ARMDATA_WIDTHS "${CMAKE_CURRENT_LIST_DIR}/../tools/armdata_widths.txt" ABSOLUTE)
+# The struct layouts of the sources' declarations (armdata.py imports it).
+get_filename_component(EIDOS_DATALAYOUT_TOOL "${CMAKE_CURRENT_LIST_DIR}/../tools/datalayout.py" ABSOLUTE)
 
 function(eidos_armdata prefix)
     cmake_parse_arguments(A "CODE_SCAN" "SOURCES_LIST;REGION" "MATCHED;BIND" ${ARGN})
@@ -87,7 +89,7 @@ function(eidos_armdata prefix)
                 ${bind_args}
                 --exclusions ${EIDOS_ARMDATA_EXCLUSIONS}
                 --out-c ${out_c} --out-h ${out_h}
-        DEPENDS ${EIDOS_ARMDATA_TOOL} ${EIDOS_ARMDATA_WIDTHS}
+        DEPENDS ${EIDOS_ARMDATA_TOOL} ${EIDOS_ARMDATA_WIDTHS} ${EIDOS_DATALAYOUT_TOOL}
                 ${EIDOS_ARMDATA_EXCLUSIONS}
                 ${A_SOURCES_LIST}
                 ${A_BIND}

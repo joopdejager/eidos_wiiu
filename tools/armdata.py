@@ -311,6 +311,19 @@ class SourceFile:
         self._symbols(text)
         code = strip_c(text)
         self._scan(code)
+        # For tools/datalayout.py: each extern's type, the struct types the
+        # file casts a name to, and the locals it copies a name into (a
+        # stand-in block copied to a local and cast to its real type).
+        self.decl_types = {}
+        self.cast_types = {}
+        self.copies = {}
+        for dm in _EXTERN_DECL_RE.finditer(code):
+            self.decl_types[dm.group(2)] = dm.group(1)
+        for cm in _CAST_RE.finditer(code):
+            self.cast_types.setdefault(cm.group(2), set()).add(cm.group(1))
+        for am in _COPY_RE.finditer(code):
+            if am.group(2) in self.decl_types:
+                self.copies.setdefault(am.group(1), set()).add(am.group(2))
         for dm in _EXTERN_DECL_RE.finditer(code):
             w = decl_width(dm.group(1))
             if w is not None:
@@ -630,6 +643,13 @@ def object_pointer_words(obj):
 
 
 _STRUCT_DEF_RE = re.compile(r"\bstruct\s+([A-Za-z_]\w*)\s*\{([^{}]*)\}")
+# `(const struct T *)(&name)`, `(T *)name`: a cast of a name to a struct
+# type's pointer (tools/datalayout.py takes only struct types from these).
+_CAST_RE = re.compile(
+    r"\(\s*((?:const\s+|volatile\s+)*(?:struct\s+)?[A-Za-z_]\w*)\s*\*\s*\)"
+    r"\s*\(?\s*&?\s*\(?\s*([A-Za-z_]\w*)")
+# `local = name;`: a whole copy of a name.
+_COPY_RE = re.compile(r"(?<![\w.>])([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*;")
 _EXTERN_DECL_RE = re.compile(
     r"\bextern\s+([A-Za-z_][^;{}()=]*?)\b([A-Za-z_]\w*)\s*(?:\[[^;\]]*\]\s*)*;")
 _WIDTH_OF = {
@@ -683,20 +703,84 @@ def object_swap_runs(obj):
     return []
 
 
-def declared_swap_runs(m):
-    """Runs for the data objects the metadata types only as bytes (its
+def data_swap_runs(objects, reloc_words, sources, names, region):
+    """The swap runs of one region's data (the ARM9 image's here, an
+    overlay's in tools/ovlink.py): data_objects.json's types, the listed
+    pointer words and what the sources declare, the declarations replacing
+    the metadata's typing where declared_runs says so."""
+    decl, over = declared_runs(objects, sources, names, region)
+    obj = [r for o in objects if int(o["addr"], 16) not in over
+           for r in object_swap_runs(o)]
+    return merge_runs(obj + [(w, 4, 4) for w in reloc_words] + decl)
+
+
+def layout_runs(objects, sources, names, skip):
+    """Runs from struct layouts (tools/datalayout.py): where a source
+    declares a name as a struct (or as bytes it casts to one), that layout,
+    tiled over the object at the address, replaces data_objects.json's
+    numeric or raw guess there.  The metadata's evidence-based kinds
+    (struct, pointer_table, string) and the addresses in `skip` keep theirs.
+    Two layouts at one address (two declarations of one object) combine
+    when they are one size and no byte is a field of two widths:
+    CdemoEntry's lone u16 and CdemoScriptStep's u16, u16, int, int; any
+    other pair gives none.  Returns the runs and the addresses of the
+    objects they replace."""
+    import datalayout
+    by_addr = {}
+    for sf in sources:
+        for name, lay in datalayout.declared_layouts(sf, names).items():
+            by_addr.setdefault(names[name]["addr"], {})[lay.key()] = lay
+    starts = sorted((int(o["addr"], 16), o) for o in objects)
+    at = dict(starts)
+    runs, over = [], set()
+    for addr, lays in sorted(by_addr.items()):
+        lay = _combined_layout(list(lays.values()))
+        if lay is None or addr in skip:
+            continue
+        o = at.get(addr)
+        if o is not None and o["kind"] not in ("numeric", "raw", "zero"):
+            continue
+        extent = max(lay.size, o["size"] if o is not None else 0)
+        extent -= extent % lay.size
+        inside = [a for a, _o in starts if addr <= a < addr + extent]
+        if any(at[a]["kind"] not in ("numeric", "raw", "zero") for a in inside):
+            continue                        # a typed object inside: keep the metadata
+        for i in range(extent // lay.size):
+            runs.extend((addr + i * lay.size + off, n, w) for off, n, w in lay.runs)
+        over.update(inside)
+        over.add(addr)
+    return runs, over
+
+
+def _combined_layout(lays):
+    """One layout from several of one object's, or None when they differ in
+    size or claim a byte at two widths (layout_runs)."""
+    import datalayout
+    if len({lay.size for lay in lays}) != 1:
+        return None
+    width_at = {}
+    for lay in lays:
+        for off, n, w in lay.runs:
+            for a in range(off, off + n, w):
+                for b in range(a, a + w):
+                    if width_at.setdefault(b, (a, w)) != (a, w):
+                        return None
+    elems = sorted(set(width_at.values()))
+    return datalayout.Layout(lays[0].size, max(lay.align for lay in lays),
+                             merge_runs([(a, w, w) for a, w in elems]))
+
+
+def declared_runs(objects, sources, names, region):
+    """Runs for what the sources declare, over `objects` (data_objects.json's,
+    of one region), the SourceFiles that name them and `names` (name -> a
+    dict with its "addr" and, if known, "size").  Struct layouts first
+    (layout_runs).  Then the objects the metadata types only as bytes (its
     fallback when nothing else showed, `numeric` u8 or `raw`) whose name a
     build source declares as a wider scalar or pointer: GXi_DmaId is
-    `extern u32 GXi_DmaId;` and four u8 in data_objects.json.  The width is
-    taken only when every declaration of every name at the address agrees."""
-    return declared_runs(m.objects, m.sources, m.names)
-
-
-def declared_runs(objects, sources, names):
-    """declared_swap_runs over `objects` (data_objects.json's, of one
-    region), the SourceFiles that name them and `names` (name -> a dict with
-    its "addr" and, if known, "size"): tools/ovlink.py asks it for an
-    overlay's data."""
+    `extern u32 GXi_DmaId;` and four u8 in data_objects.json; the width is
+    taken only when every declaration of every name at the address agrees.
+    tools/armdata_widths.txt wins over both.  Returns the runs and the
+    addresses of the objects whose metadata typing they replace."""
     weak = {}
     for o in objects:
         if o["kind"] == "raw" or (o["kind"] == "numeric" and o.get("elem") in ("u8", "s8")):
@@ -716,8 +800,29 @@ def declared_runs(objects, sources, names):
             e = names.get(name)
             if e is not None:
                 widths.setdefault(e["addr"], set()).add(w)
-    out = []
+    # tools/armdata_widths.txt's entries win over everything below.  An
+    # entry names a data name, or (for an object no source names, reached
+    # only through a pointer) `region:0xADDRESS`, `region` being "arm9" or
+    # an overlay's "ovNNN".
+    sizes = {int(o["addr"], 16): o["size"] for o in objects}
+    listed = {}
+    if os.path.exists(WIDTHS_FILE):
+        with open(WIDTHS_FILE, encoding="utf-8") as fh:
+            for line in fh:
+                f = line.split("#", 1)[0].split()
+                if len(f) < 2:
+                    continue
+                if f[0] in names:
+                    listed[names[f[0]]["addr"]] = (f, names[f[0]].get("size"))
+                else:
+                    am = re.fullmatch(r"([a-z0-9]+):0x([0-9A-Fa-f]{8})", f[0])
+                    if am and am.group(1) == region and int(am.group(2), 16) in sizes:
+                        listed[int(am.group(2), 16)] = (f, None)
+    skip = set(listed)
+    out, over = layout_runs(objects, sources, names, skip)
     for addr, ws in widths.items():
+        if addr in over:
+            continue
         size = weak.get(addr)
         if size is None or len(ws) != 1:
             continue
@@ -725,28 +830,25 @@ def declared_runs(objects, sources, names):
         if w in (2, 4, 8) and addr % min(w, 4) == 0 and size >= w:
             out.append((addr, size - size % w, w))
     # tools/armdata_widths.txt: objects their consumer reads wider.
-    sizes = {int(o["addr"], 16): o["size"] for o in objects}
-    if os.path.exists(WIDTHS_FILE):
-        with open(WIDTHS_FILE, encoding="utf-8") as fh:
-            for line in fh:
-                f = line.split("#", 1)[0].split()
-                if len(f) < 2 or f[0] not in names:
-                    continue
-                addr = names[f[0]]["addr"]
-                w = int(f[1], 0)
-                size = int(f[2], 0) if len(f) > 2 and f[2].isdigit() and int(f[2], 0) else (
-                    sizes.get(addr) or names[f[0]].get("size") or w)
-                out = [r for r in out if r[0] != addr]
-                out.append((addr, size - size % w, w))
-    return out
+    for addr, (f, name_size) in listed.items():
+        w = int(f[1], 0)
+        size = int(f[2], 0) if len(f) > 2 and f[2].isdigit() and int(f[2], 0) else (
+            sizes.get(addr) or name_size or w)
+        out = [r for r in out if r[0] != addr]
+        out.append((addr, size - size % w, w))
+        over.add(addr)
+    return out, over
 
 
 def merge_runs(runs):
-    """Sorted runs with adjacent ones of one width joined; overlaps dropped."""
+    """Sorted runs with touching or overlapping ones of one width (in step)
+    joined; an overlap of another width dropped."""
     out = []
     for a, n, w in sorted(set(runs)):
-        if out and out[-1][2] == w and out[-1][0] + out[-1][1] == a:
-            out[-1] = (out[-1][0], out[-1][1] + n, w)
+        if out and out[-1][2] == w and a <= out[-1][0] + out[-1][1] \
+                and (a - out[-1][0]) % w == 0:
+            end = max(out[-1][0] + out[-1][1], a + n)
+            out[-1] = (out[-1][0], end - out[-1][0], w)
         elif not out or a >= out[-1][0] + out[-1][1]:
             out.append((a, n, w))
     return out
@@ -1753,9 +1855,8 @@ def write_c(m: Model, path: str):
     w("")
     # The 16- and 32-bit runs a big-endian host turns into its own order
     # (data_objects.json's types, and every listed pointer word).
-    swaps = merge_runs([r for o in m.objects for r in object_swap_runs(o)]
-                       + [(r["where"], 4, 4) for r in m.relocs]
-                       + declared_swap_runs(m))
+    swaps = data_swap_runs(m.objects, [r["where"] for r in m.relocs], m.sources, m.names,
+                           m.region)
     w("/* The 16- and 32-bit runs of the data, for a big-endian host. */")
     w("static const BwDataSwap k_swap[] = {")
     for a, n, wd in swaps:

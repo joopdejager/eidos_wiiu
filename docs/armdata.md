@@ -149,16 +149,38 @@ reads it with native loads. On a big-endian host (the Wii U's PowerPC)
 host's order (`swap_to_host`), except the words the relocation and the two
 scans wrote host pointers into, which compared against the image's own
 little-endian words first and are host-ordered already. The runs
-(`BwDataImage.swaps`) are generated from, in this order of trust:
-`tools/armdata_widths.txt`, a short hand list of objects that only their
-consumer types (the heap's arena tables, read as `{u32, u32}` records;
-`_MainSaveDesc`, read as `SaveDataParam`); the build's `extern` declarations,
-for an object data_objects.json types only as bytes (its fallback), when
-every declaration agrees (`extern u32 GXi_DmaId;`, or a struct whose fields
-are all one width); and data_objects.json's own types (numeric elements,
-struct fields, pointer tables) and every listed pointer word. Strings, byte
-arrays and objects of unknown layout are left alone. A little-endian host
-generates the same table and never reads it.
+(`BwDataImage.swaps`) are generated (`armdata.data_swap_runs`, for the
+ARM9 image here and for each overlay in `tools/ovlink.py`) from, in this
+order of trust:
+
+1. `tools/armdata_widths.txt`, a short hand list of objects that only their
+   consumer types (the heap's arena tables, read as `{u32, u32}` records;
+   `_MainSaveDesc`, read as `SaveDataParam`; ov170's box menu lists), keyed
+   by name, or by `region:address` for an object no source names (ov179's
+   cut-demo scripts, reached only through a pointer table);
+2. data_objects.json's evidence-based kinds: `struct` (fields typed from the
+   pointers found in them), `pointer_table` and `string`;
+3. the struct layout a source declares the object with
+   (`tools/datalayout.py`): `extern const struct BgTemplate d_021BD470;` is
+   u32, u32, u32, u32, four u8, u32, four u8, u32, laid out as mwcc does,
+   tiled over the object and replacing data_objects.json's numeric or raw
+   guess there (it had 32 u8, or 16 u16, which swapped the u32 fields
+   wrong or not at all). Where the declaration is opaque, bytes or a block
+   stand-in (`typedef struct { u32 w[8]; } BgTemplateBlock;`, the decomp's
+   spelling of "copied whole"), the one struct type the source casts the
+   name, or a local copied from it, to is used instead. Two declarations
+   of one object combine when no byte is a field of two widths (ov179's
+   `CdemoEntry` and `CdemoScriptStep`); a union, a bit-field, a packed
+   struct or a type the module cannot lay out gives nothing;
+4. a scalar `extern` declaration, for an object data_objects.json types
+   only as bytes, when every declaration agrees (`extern u32 GXi_DmaId;`);
+5. data_objects.json's numeric types and every listed pointer word.
+
+Strings, byte arrays and objects of unknown layout are left alone. A
+little-endian host generates the same table and never reads it. Data that
+stays in the DS's order whatever the host, such as a compressed stream's
+header word, is not turned at all: the game's views of it are listed in
+`tools/sso_types.txt` and read in the DS's order under `EIDOS_SSO`.
 
 **A code pointer and a mod's hook.** A word that holds the address of a
 function is called through, so it does not pass a call site and the slot the

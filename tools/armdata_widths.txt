@@ -9,7 +9,10 @@
 # build's sources (tools/armdata.py, declared_swap_runs).  An object that is
 # declared as bytes too, and that its consumer reads as wider words, is
 # listed here: the name, the width, the bytes it covers (0: the object's
-# whole extent), then why.  An entry here wins over both.
+# whole extent), then why.  An entry here wins over both.  An object no
+# source names (reached only through a pointer) is listed as region:address,
+# arm9:0xXXXXXXXX or ovNNN:0xXXXXXXXX (overlays share their windows), where
+# a data object of that region starts.
 _ArenaTableTwl   4  0   GFL_HEAP_Init reads {u32 size, u32 unk} records (sdk/game_globals.c, BwEnvRes)
 _ArenaTableDs    4  0   the same table for the DS
 _MainSaveDesc    4  0   BACKUP_SYSTEM_Create reads it as SaveDataParam (six 32-bit words); declared as the incomplete struct SaveAreaDesc
@@ -30,3 +33,9 @@ d_021EF9C8   2  0   ov170 box menu list (Ent[])
 d_021EF9E0   2  0   ov170 box menu list (Ent[])
 d_021EF9F8   2  0   ov170 box menu list (Ent[])
 d_021EFA10   2  0   ov170 box menu list (Ent[])
+# ov179's cut-demo command scripts, reached only through d_021B68E4's
+# pointers: int words (command, arguments) that CDEMO_SCENE_DispatchCommand
+# reads; data_objects.json has them as u8
+ov179:0x021B6920   4  0   ov179 cut-demo script (int[])
+ov179:0x021B6964   4  0   ov179 cut-demo script (int[])
+ov179:0x021B69B0   4  0   ov179 cut-demo script (int[])

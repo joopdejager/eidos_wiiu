@@ -2516,6 +2516,11 @@ endif()
 add_test(NAME test_armdata_gen
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_armdata.py
             --tool=${CMAKE_CURRENT_SOURCE_DIR}/tools/armdata.py)
+# test_datalayout: tools/datalayout.py's struct layouts and how armdata.py
+# combines them, on a hand-written tree (the swap runs of declared data).
+add_test(NAME test_datalayout
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_datalayout.py
+            --tools=${CMAKE_CURRENT_SOURCE_DIR}/tools)
 
 # test_armdata: the runtime against a synthetic image and hand-written
 # tables (copy, zero, bind, relocate, the mismatch and LP64 refusals).

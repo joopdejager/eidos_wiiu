@@ -435,10 +435,15 @@ class Scan:
         self.conflicts = {n for n in sf.identifiers
                           if n in sf.members or n in sf.init_names or n in sf.shadowed}
         # The widths its declarations give data names, for the overlay's
-        # swap runs (armdata.declared_runs).
+        # swap runs (armdata.declared_runs), and what tools/datalayout.py
+        # needs to lay its declared structs out.
         self.widths = types.SimpleNamespace(decl_widths=dict(sf.decl_widths),
                                             decl_structs=dict(sf.decl_structs),
-                                            struct_widths=dict(sf.struct_widths))
+                                            struct_widths=dict(sf.struct_widths),
+                                            path=path,
+                                            decl_types=dict(sf.decl_types),
+                                            cast_types=dict(sf.cast_types),
+                                            copies=dict(sf.copies))
 
     def _parse_symbols(self, text):
         in_block = False
@@ -2702,10 +2707,9 @@ class Link:
         # the overlay's own file is turned; a name its sources declare in the
         # ARM9 or another overlay is that image's.
         objects = self.al.data_objects(ov.id)
-        runs = [r for o in objects for r in armdata.object_swap_runs(o)]
-        runs += [(r["where"], 4, 4) for r in st.relocs]
-        runs += armdata.declared_runs(objects, [u.scan.widths for u in st.units], st.data)
-        st.swaps = [(a, n, w) for a, n, w in armdata.merge_runs(runs)
+        runs = armdata.data_swap_runs(objects, [r["where"] for r in st.relocs],
+                                      [u.scan.widths for u in st.units], st.data, ov.tag)
+        st.swaps = [(a, n, w) for a, n, w in runs
                     if ov.lo <= a and a + n <= ov.code_end]
         # Static initialisers.
         for a in overlay_table.KNOWN_SINIT.get(ov.id, [])[:ov.sinit_count]:

@@ -224,6 +224,7 @@ function(eidos_overlays name)
         ${_eidos_ovl_tools}/ovlink_exclusions.txt
         ${_eidos_ovl_tools}/../sdk/asm/ov
         ${_eidos_ovl_tools}/armdata_widths.txt
+        ${_eidos_ovl_tools}/datalayout.py
         ${A_ROOT}/layout/layout.json)
     # The data's types: its pointer words and its swap runs.
     if(EXISTS ${A_ROOT}/layout/data_objects.json)
