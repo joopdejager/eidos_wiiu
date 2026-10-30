@@ -208,7 +208,8 @@ static void build_image(void)
     memset(g_image, 0, sizeof(g_image));
     for (i = 0; i < 3; i++) {
         memcpy(g_image + off, names[i], strlen(names[i]) + 1);
-        put32(g_image + TABLE_OFF + 4 * i, A(off));
+        /* The image is the DS's bytes: little-endian whatever the host. */
+        bw_wr32(g_image + TABLE_OFF + 4 * i, A(off));
         off += (u32)strlen(names[i]) + 1;
     }
     /* An empty string at +0x180, and an unterminated run filling the end. */

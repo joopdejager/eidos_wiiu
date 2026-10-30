@@ -38,6 +38,7 @@
  *     Recorded in docs/building.md under "Known type mismatches".
  */
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "port.h"
@@ -141,6 +142,30 @@ int bw_arc_install_table(u32 address, u32 count)
     if (t == NULL || count == 0u) {
         return -1;
     }
+#if BW_HOST_BIG_ENDIAN
+    {
+        /* The matched reader indexes the table with native loads, and the
+         * image is the DS's little-endian bytes: a copy in the host's order
+         * (the boot's own table, in the relocated image copy, is turned by
+         * sdk/armdata.c instead). */
+        static u32 *copy;
+        static u32 copy_count;
+        u32 i;
+
+        if (copy_count < count) {
+            u32 *grown = (u32 *)realloc(copy, count * sizeof(u32));
+            if (grown == NULL) {
+                return -1;
+            }
+            copy = grown;
+            copy_count = count;
+        }
+        for (i = 0; i < count; i++) {
+            copy[i] = bw_rd32((const u8 *)t + 4u * i);
+        }
+        t = copy;
+    }
+#endif
     g_02146A68.table = (const u32 *)t;
     g_02146A68.count = count;
     g_02146A68.memory = 0;

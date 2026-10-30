@@ -67,12 +67,19 @@ static void put32(u8 *p, u32 v)
 /* Packing                                                             */
 /* ------------------------------------------------------------------ */
 
-/* The nameless BTNF every archive of this game but one carries. */
-static const u8 MINIMAL_BTNF[16] = {
-    'B', 'T', 'N', 'F', 0x10, 0, 0, 0,  /* magic, size                    */
-    4, 0, 0, 0,                         /* root: sub-table offset         */
-    0, 0, 1, 0                          /* first file id 0, one directory */
-};
+/* The nameless BTNF every archive of this game but one carries: magic,
+ * size 0x10, the root's sub-table at +4, first file id 0, one directory;
+ * its numbers in the data root's order like the rest of the framing. */
+#define MINIMAL_BTNF_SIZE 16u
+
+static void minimal_btnf(u8 out[MINIMAL_BTNF_SIZE])
+{
+    bw_wr32(out, BTNF_MAGIC);
+    bw_dr_wr32(out + 4, MINIMAL_BTNF_SIZE);
+    bw_dr_wr32(out + 8, 4);
+    bw_dr_wr16(out + 12, 0);
+    bw_dr_wr16(out + 14, 1);
+}
 
 int bw_narc_pack(const u8 *const *data, const u32 *sizes, u32 count,
                  const u8 *btnf, u32 btnf_size, u8 **out, u32 *out_size)
@@ -84,6 +91,7 @@ int bw_narc_pack(const u8 *const *data, const u32 *sizes, u32 count,
     u32 at;
     u32 pos;
     u8 *img;
+    u8 minimal[MINIMAL_BTNF_SIZE];
 
     *out = NULL;
     *out_size = 0;
@@ -91,8 +99,9 @@ int bw_narc_pack(const u8 *const *data, const u32 *sizes, u32 count,
         return -1;
     }
     if (btnf == NULL) {
-        btnf = MINIMAL_BTNF;
-        btnf_size = sizeof(MINIMAL_BTNF);
+        minimal_btnf(minimal);
+        btnf = minimal;
+        btnf_size = MINIMAL_BTNF_SIZE;
     }
     if (btnf_size < 8 || (btnf_size % NARC_ALIGN) != 0 ||
         bw_rd32(btnf) != BTNF_MAGIC || bw_dr_rd32(btnf + 4) != btnf_size) {

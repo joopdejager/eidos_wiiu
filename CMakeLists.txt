@@ -91,6 +91,20 @@ if(IS_ABSOLUTE "${BW_DATA_ROOT}")
 else()
     set(BW_DATA_ROOT_ABS "${ALETHEIA_ROOT}/${BW_DATA_ROOT}")
 endif()
+# What the build-time Python tools read (tools/fixtures.py and the oracles,
+# through aletheia's asset readers): those take the cartridge's own
+# little-endian order, so a data root a big-endian host turned
+# (install/byteorder.c, byte_order.txt beside data/) needs an unturned
+# extraction for them.  Empty: the data root itself.
+set(BW_REFERENCE_DATA_ROOT "" CACHE STRING
+    "An extraction in the cartridge's byte order for the build-time tools (default: BW_DATA_ROOT)")
+if(BW_REFERENCE_DATA_ROOT STREQUAL "")
+    set(BW_REFERENCE_DATA_ROOT_ABS "${BW_DATA_ROOT_ABS}")
+elseif(IS_ABSOLUTE "${BW_REFERENCE_DATA_ROOT}")
+    set(BW_REFERENCE_DATA_ROOT_ABS "${BW_REFERENCE_DATA_ROOT}")
+else()
+    set(BW_REFERENCE_DATA_ROOT_ABS "${ALETHEIA_ROOT}/${BW_REFERENCE_DATA_ROOT}")
+endif()
 # Forward slashes only: the path is also compiled in as a C string literal
 # (EIDOS_DEFAULT_DATA_ROOT in eidos_view and eidos_boot), where a
 # Windows-style C:\Users\... reads as escape sequences.  Windows accepts '/'.
@@ -1294,7 +1308,7 @@ add_custom_command(
     OUTPUT ${BW_FIXTURES}
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixtures.py
             --aletheia-root ${ALETHEIA_ROOT}
-            --data-root ${BW_DATA_ROOT_ABS}
+            --data-root ${BW_REFERENCE_DATA_ROOT_ABS}
             --out ${BW_FIXTURES}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/fixtures.py
             ${ALETHEIA_ROOT}/tools/assets/text.py
@@ -1343,7 +1357,7 @@ add_custom_command(
     OUTPUT ${BW_G2D_ORACLE_FILES}
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/rig_oracle.py
             --aletheia-root ${ALETHEIA_ROOT}
-            --data-root ${BW_DATA_ROOT_ABS}
+            --data-root ${BW_REFERENCE_DATA_ROOT_ABS}
             --out ${BW_G2D_ORACLE_DIR}
             ${BW_G2D_SPECIES} ${BW_G2D_AFFINE_SPECIES}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/rig_oracle.py
@@ -1406,7 +1420,7 @@ add_custom_command(
     OUTPUT ${BW_BG_ORACLE_FILES}
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/bg_oracle.py
             --aletheia-root ${ALETHEIA_ROOT}
-            --data-root ${BW_DATA_ROOT_ABS}
+            --data-root ${BW_REFERENCE_DATA_ROOT_ABS}
             --out ${BW_BG_ORACLE_DIR}
             ${BW_BG_SCREENS}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/bg_oracle.py
@@ -1452,7 +1466,7 @@ add_custom_command(
     OUTPUT ${BW_G3D_ORACLE_FILES}
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/g3d_oracle.py
             --aletheia-root ${ALETHEIA_ROOT}
-            --data-root ${BW_DATA_ROOT_ABS}
+            --data-root ${BW_REFERENCE_DATA_ROOT_ABS}
             --out ${BW_G3D_ORACLE_DIR}
             ${BW_G3D_MODELS}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/g3d_oracle.py
@@ -1498,7 +1512,7 @@ add_custom_command(
     OUTPUT ${BW_AUDIO_ORACLE_FILES}
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/audio_oracle.py
             --aletheia-root ${ALETHEIA_ROOT}
-            --data-root ${BW_DATA_ROOT_ABS}
+            --data-root ${BW_REFERENCE_DATA_ROOT_ABS}
             --out ${BW_AUDIO_ORACLE_DIR}
             --max-seconds ${BW_AUDIO_SECONDS}
             ${BW_AUDIO_SEQS}
