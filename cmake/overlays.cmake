@@ -223,7 +223,13 @@ function(eidos_overlays name)
         ${_eidos_ovl_tools}/overlay_table.py
         ${_eidos_ovl_tools}/ovlink_exclusions.txt
         ${_eidos_ovl_tools}/../sdk/asm/ov
+        ${_eidos_ovl_tools}/armdata_widths.txt
         ${A_ROOT}/layout/layout.json)
+    # The data's types: its pointer words and its swap runs.
+    if(EXISTS ${A_ROOT}/layout/data_objects.json)
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+            ${A_ROOT}/layout/data_objects.json)
+    endif()
     # Port C for single overlay functions (tools/ovlink.py, --port-ov-dir):
     # the directory exists only while there is some.
     if(EXISTS ${_eidos_ovl_tools}/../stubs/ov)

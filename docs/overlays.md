@@ -151,6 +151,19 @@ DS's 32-bit slot, which only fits where pointers are four bytes. On an LP64
 host the copy and the bindings work and the relocation is refused; the load
 panics unless the set was installed with `BW_DATA_ALLOW_UNRELOCATED`.
 
+Byte order: the file is the DS's, little-endian, and the overlay's matched
+code reads its data with native loads. On a big-endian host the relocation
+ends by turning the data's 16- and 32-bit runs into the host's order, as
+for the ARM9 image (`docs/armdata.md`, "Byte order"; `swap_to_host`). ovlink
+writes each overlay's runs (`k_swap`) from the same sources armdata.py uses:
+`data_objects.json`'s region for the overlay, every listed pointer word, the
+widths the overlay's own sources declare for names the metadata types only
+as bytes, and `tools/armdata_widths.txt`. Only runs inside the overlay's
+file are kept: an ARM9 name an overlay's source declares is the ARM9 image's
+to turn, once. Every load copies the file afresh, so every load turns it
+afresh. The hooks `sdk/overlay_image.c` writes into the overlay's code words
+are written in the host's order too, as the relocation wrote the words.
+
 A name a matched file also uses as a member, tag, local or in a static
 initialiser cannot be a macro over a pointer; it becomes a host object of
 its own (`ovNNN_<name>`), filled at load from the bytes at its address and

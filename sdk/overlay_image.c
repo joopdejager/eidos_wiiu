@@ -384,7 +384,7 @@ static u32 ovl_apply_code_pointers(const BwOvlImage *o)
         plain = (u32)(uintptr_t)f->fn;
         want = ovl_hook_address(BW_MOD_REGION_OVL(o->id), key, plain);
         if (want != plain) {
-            bw_wr32(w, want);
+            bw_mem_wr32(w, want);   /* host order, as the relocation wrote it */
             n++;
         }
         remember_code_word(w, want, plain, key, o->id);
@@ -418,7 +418,7 @@ u32 bw_ovl_resolve_code_pointers(void)
         if (cw->word == NULL || !bw_overlay_is_loaded(cw->overlay)) {
             continue;
         }
-        now = bw_rd32(cw->word);
+        now = bw_mem_rd32(cw->word);
         if (now != cw->host) {
             continue;           /* the game wrote its own value there */
         }
@@ -427,7 +427,7 @@ u32 bw_ovl_resolve_code_pointers(void)
         if (want == now) {
             continue;           /* nothing changed */
         }
-        bw_wr32(cw->word, want);
+        bw_mem_wr32(cw->word, want);
         cw->host = want;
         n++;
     }

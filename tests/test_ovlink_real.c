@@ -52,7 +52,8 @@ void *bw_ovl_ds_ptr_ov179(unsigned int addr);
 
 static u32 ds_word(u32 addr)
 {
-    return bw_rd32((const u8 *)bw_ds_ptr(addr));
+    /* As the game reads it: the loaded data is in the host's order. */
+    return bw_mem_rd32((const u8 *)bw_ds_ptr(addr));
 }
 
 int main(int argc, char **argv)

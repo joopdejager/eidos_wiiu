@@ -1,5 +1,6 @@
-# tools/armdata_widths.txt -- element widths of ARM9 data objects that
-# neither layout/data_objects.json nor a declaration types.
+# tools/armdata_widths.txt -- element widths of ARM9 and overlay data objects
+# that neither layout/data_objects.json nor a declaration types (tools/ovlink.py
+# reads it for an overlay's data, keeping the entries inside its file).
 #
 # A big-endian host turns the 16- and 32-bit runs of the image into its own
 # order when the image is loaded (sdk/armdata.c, swap_to_host).  The runs

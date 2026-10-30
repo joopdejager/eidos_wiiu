@@ -106,6 +106,13 @@ static const BwDataRange k_scan[] = {
     { 0x02004030u, 0xD0u, 0, 0 },
 };
 
+/* The pointer words and the number next to them are 32-bit data: a
+ * big-endian host turns the ones the relocation did not write into its own
+ * order (sdk/armdata.c, swap_to_host). */
+static const BwDataSwap k_swap[] = {
+    { 0x02004020u, 0x18u, 4 },
+};
+
 static const BwDataImage k_img = {
     "arm9", -1,
     k_ranges, 4,
@@ -115,7 +122,7 @@ static const BwDataImage k_img = {
     k_anchors, 1,
     k_objects, 1,
     k_scan, 1,
-    NULL, 0
+    k_swap, 1
 };
 
 static void make_image(void)
@@ -136,7 +143,16 @@ static void make_image(void)
     bw_arm9_set_image(g_image, IMG_SIZE);
 }
 
+/* A word as the game reads it once the image is relocated: in the host's
+ * order (the relocation writes host pointers natively, swap_to_host turns
+ * the typed runs). */
 static u32 word_at(u32 addr)
+{
+    return bw_mem_rd32((const u8 *)bw_ds_ptr(addr));
+}
+
+/* A word the relocation has not touched: still the DS's little-endian. */
+static u32 image_word(u32 addr)
 {
     return bw_rd32((const u8 *)bw_ds_ptr(addr));
 }
@@ -155,19 +171,27 @@ static void check_relocated(const char *when)
         BW_CHECK_EQ(label, word_at(0x02004028u),
                     (u32)(uintptr_t)(g_port_obj + 4));
         snprintf(label, sizeof(label), "%s: pointer inside a host object", when);
-        BW_CHECK_EQ(label, bw_rd32((const u8 *)t_obj + 4),
+        BW_CHECK_EQ(label, bw_mem_rd32((const u8 *)t_obj + 4),
                     (u32)(uintptr_t)bw_ds_ptr(0x02004080u));
         snprintf(label, sizeof(label), "%s: unlisted code pointer", when);
         BW_CHECK_EQ(label, word_at(0x02004030u), (u32)(uintptr_t)test_fn);
         snprintf(label, sizeof(label), "%s: a number next to it", when);
-        BW_CHECK_EQ(label, word_at(0x02004034u), 0x02012344u);
+        if (bw_ds_identity()) {
+            BW_CHECK_EQ(label, word_at(0x02004034u), 0x02012344u);
+        } else {
+            /* Movable blocks: a word inside the data's address window is
+             * taken for a pointer the metadata missed (sdk/armdata.c,
+             * scan_data_pointers), and 0x02012344 is inside it. */
+            BW_CHECK_EQ(label, word_at(0x02004034u),
+                        (u32)(uintptr_t)bw_ds_ptr(0x02012344u));
+        }
         snprintf(label, sizeof(label), "%s: autoload pointer", when);
         BW_CHECK_EQ(label, word_at(0x02FE0004u),
                     (u32)(uintptr_t)bw_ds_ptr(0x02004000u));
     } else {
         snprintf(label, sizeof(label), "%s: LP64 leaves the DS address", when);
-        BW_CHECK_EQ(label, word_at(0x02004020u), 0x02004080u);
-        BW_CHECK_EQ(label, word_at(0x02004024u), 0x02012345u);
+        BW_CHECK_EQ(label, image_word(0x02004020u), 0x02004080u);
+        BW_CHECK_EQ(label, image_word(0x02004024u), 0x02012345u);
     }
 }
 
@@ -243,7 +267,7 @@ static int test_mismatch_and_missing(void)
     BW_CHECK_EQ("mismatch detected", rc, BW_DATA_E_MISMATCH);
     BW_REQUIRE("mismatch names the word",
                strstr(bw_data_error(), "0x02004024") != NULL);
-    BW_CHECK_EQ("nothing written on a mismatch", word_at(0x02004020u), 0x02004080u);
+    BW_CHECK_EQ("nothing written on a mismatch", image_word(0x02004020u), 0x02004080u);
 
     bw_arm9_set_image(NULL, 0);
     bw_ds_reset();

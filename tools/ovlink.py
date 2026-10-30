@@ -98,6 +98,7 @@ import json
 import os
 import re
 import sys
+import types
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -433,6 +434,11 @@ class Scan:
                                  lambda: armdata.SourceFile(path, text, True))
         self.conflicts = {n for n in sf.identifiers
                           if n in sf.members or n in sf.init_names or n in sf.shadowed}
+        # The widths its declarations give data names, for the overlay's
+        # swap runs (armdata.declared_runs).
+        self.widths = types.SimpleNamespace(decl_widths=dict(sf.decl_widths),
+                                            decl_structs=dict(sf.decl_structs),
+                                            struct_widths=dict(sf.struct_widths))
 
     def _parse_symbols(self, text):
         in_block = False
@@ -1470,10 +1476,12 @@ class Aletheia:
                     out.add(last)
         return out
 
+    def data_objects(self, oid):
+        return armdata.load_data_objects(self.root, "ov%03d" % oid)[1]
+
     def data_object_relocs(self, oid):
-        rng, objects, _ext = armdata.load_data_objects(self.root, "ov%03d" % oid)
         out = {}
-        for obj in objects:
+        for obj in self.data_objects(oid):
             for loc, tgt in armdata.object_pointer_words(obj):
                 out[loc] = tgt
         return out
@@ -1526,6 +1534,8 @@ class OvState:
         self.data = {}             # name -> dict
         self.objects = {}          # name -> dict (host objects, conflicts)
         self.relocs = []           # {where, target, kind, ...}
+        self.swaps = []            # (addr, size, width): the data's 16- and
+                                   # 32-bit runs, for a big-endian host
         self.code_literals = {}    # value -> symbol expression
         self.sinits = []           # symbol names
         self.unresolved = {}
@@ -2685,6 +2695,18 @@ class Link:
                 else:
                     r["kind"] = "DATA"
             st.relocs.append(r)
+        # The 16- and 32-bit runs of the overlay's data, which a big-endian
+        # host turns into its own order after the relocation (sdk/armdata.c,
+        # swap_to_host), as armdata.py does for the ARM9's: data_objects.json's
+        # types, every pointer word and the widths the sources declare.  Only
+        # the overlay's own file is turned; a name its sources declare in the
+        # ARM9 or another overlay is that image's.
+        objects = self.al.data_objects(ov.id)
+        runs = [r for o in objects for r in armdata.object_swap_runs(o)]
+        runs += [(r["where"], 4, 4) for r in st.relocs]
+        runs += armdata.declared_runs(objects, [u.scan.widths for u in st.units], st.data)
+        st.swaps = [(a, n, w) for a, n, w in armdata.merge_runs(runs)
+                    if ov.lo <= a and a + n <= ov.code_end]
         # Static initialisers.
         for a in overlay_table.KNOWN_SINIT.get(ov.id, [])[:ov.sinit_count]:
             st.sinits.append(self.own_code(st, a & ~1))
@@ -3029,6 +3051,14 @@ def write_overlay_c(link, st, path):
         w("    { 0, 0, NULL, NULL }")
     w("};")
     w("")
+    w("/* The 16- and 32-bit runs of the data, for a big-endian host. */")
+    w("static const BwDataSwap k_swap[] = {")
+    for a, n, wd in st.swaps:
+        w("    { 0x%08Xu, 0x%Xu, %u }," % (a, n, wd))
+    if not st.swaps:
+        w("    { 0, 0, 0 }")
+    w("};")
+    w("")
     w("static const BwDataImage k_image = {")
     w("    %s, %d," % (c_str(ov.tag), ov.id))
     w("    k_ranges, %du," % nranges)
@@ -3038,9 +3068,7 @@ def write_overlay_c(link, st, path):
     w("    k_anchors, %du," % len(anchors))
     w("    k_objects, %du," % len(objs))
     w("    NULL, 0u,")
-    # No swap runs yet: an overlay's data stays the DS's little-endian
-    # bytes, which only a little-endian host reads right (sdk/armdata.h).
-    w("    NULL, 0u")
+    w("    k_swap, %du" % len(st.swaps))
     w("};")
     w("")
     # Static initialisers.

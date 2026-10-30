@@ -689,23 +689,31 @@ def declared_swap_runs(m):
     build source declares as a wider scalar or pointer: GXi_DmaId is
     `extern u32 GXi_DmaId;` and four u8 in data_objects.json.  The width is
     taken only when every declaration of every name at the address agrees."""
+    return declared_runs(m.objects, m.sources, m.names)
+
+
+def declared_runs(objects, sources, names):
+    """declared_swap_runs over `objects` (data_objects.json's, of one
+    region), the SourceFiles that name them and `names` (name -> a dict with
+    its "addr" and, if known, "size"): tools/ovlink.py asks it for an
+    overlay's data."""
     weak = {}
-    for o in m.objects:
+    for o in objects:
         if o["kind"] == "raw" or (o["kind"] == "numeric" and o.get("elem") in ("u8", "s8")):
             weak[int(o["addr"], 16)] = o["size"]
     widths = {}
     struct_widths = {}
-    for sf in m.sources:
+    for sf in sources:
         for tag, w in sf.struct_widths.items():
             struct_widths.setdefault(tag, set()).add(w)
-    for sf in m.sources:
+    for sf in sources:
         decls = dict(sf.decl_widths)
         for name, tag in sf.decl_structs.items():
             ws = struct_widths.get(tag, set())
             if len(ws) == 1 and None not in ws:
                 decls[name] = next(iter(ws))
         for name, w in decls.items():
-            e = m.names.get(name)
+            e = names.get(name)
             if e is not None:
                 widths.setdefault(e["addr"], set()).add(w)
     out = []
@@ -717,17 +725,17 @@ def declared_swap_runs(m):
         if w in (2, 4, 8) and addr % min(w, 4) == 0 and size >= w:
             out.append((addr, size - size % w, w))
     # tools/armdata_widths.txt: objects their consumer reads wider.
-    sizes = {int(o["addr"], 16): o["size"] for o in m.objects}
+    sizes = {int(o["addr"], 16): o["size"] for o in objects}
     if os.path.exists(WIDTHS_FILE):
         with open(WIDTHS_FILE, encoding="utf-8") as fh:
             for line in fh:
                 f = line.split("#", 1)[0].split()
-                if len(f) < 2 or f[0] not in m.names:
+                if len(f) < 2 or f[0] not in names:
                     continue
-                addr = m.names[f[0]]["addr"]
+                addr = names[f[0]]["addr"]
                 w = int(f[1], 0)
                 size = int(f[2], 0) if len(f) > 2 and f[2].isdigit() and int(f[2], 0) else (
-                    sizes.get(addr) or m.names[f[0]].get("size") or w)
+                    sizes.get(addr) or names[f[0]].get("size") or w)
                 out = [r for r in out if r[0] != addr]
                 out.append((addr, size - size % w, w))
     return out

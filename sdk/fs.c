@@ -62,6 +62,7 @@
 #include <string.h>
 
 #include "port.h"
+#include "dsmem.h"
 #include "fs.h"
 #include "vfs.h"
 

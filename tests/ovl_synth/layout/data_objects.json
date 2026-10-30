@@ -1,0 +1,22 @@
+{
+  "regions": {
+    "ov000": {
+      "base": "0x02200000",
+      "range": ["0x02200100", "0x02200104"],
+      "objects": [
+        {"addr": "0x02200100", "size": 4, "kind": "numeric", "name": "d_02200100",
+         "elem": "u32", "count": 1, "ev": "synth"}
+      ],
+      "externs": []
+    },
+    "ov001": {
+      "base": "0x02200000",
+      "range": ["0x02200100", "0x02200104"],
+      "objects": [
+        {"addr": "0x02200100", "size": 4, "kind": "numeric", "name": "d_02200100",
+         "elem": "u32", "count": 1, "ev": "synth"}
+      ],
+      "externs": []
+    }
+  }
+}

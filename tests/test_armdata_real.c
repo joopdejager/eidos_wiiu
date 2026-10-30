@@ -90,9 +90,11 @@ static void *bound(const char *name)
     return n != NULL ? *n->ref : NULL;
 }
 
+/* A word as the game reads it: the relocated image is in the host's order
+ * (sdk/armdata.c, swap_to_host). */
 static u32 word_at(u32 addr)
 {
-    return bw_rd32((const u8 *)bw_ds_ptr(addr));
+    return bw_mem_rd32((const u8 *)bw_ds_ptr(addr));
 }
 
 static const BwDataReloc *reloc_at(u32 where)
@@ -232,7 +234,11 @@ int main(int argc, char **argv)
             }
         }
         BW_REQUIRE("autoload source", img != NULL);
-        BW_CHECK_EQ("IRQ table word as in the image", word_at(0x02FE0020u), bw_rd32(img));
+        /* The DS's bytes, untouched: no source the image serves reads the
+         * table (sdk/os_interrupt.c's g_02FE0020 is the port's own), so it
+         * is neither relocated nor turned into a big-endian host's order. */
+        BW_CHECK_EQ("IRQ table word as in the image",
+                    bw_rd32((const u8 *)bw_ds_ptr(0x02FE0020u)), bw_rd32(img));
     }
 
     bw_data_install(NULL, 0);

@@ -98,9 +98,12 @@ static void put32(u8 *p, u32 v)
     p[3] = (u8)(v >> 24);
 }
 
+/* A word as the game reads it: the loaded overlay's data is in the host's
+ * order (sdk/armdata.c, swap_to_host), the files the test writes are the
+ * DS's (put32). */
 static u32 ds_word(u32 addr)
 {
-    return bw_rd32((const u8 *)bw_ds_ptr(addr));
+    return bw_mem_rd32((const u8 *)bw_ds_ptr(addr));
 }
 
 static void setup(void)
