@@ -138,8 +138,10 @@ extern void  ov170_BOX2_SEQ_ShowPartyIcons(void *task) BW_PC_WEAK;
 #define SLOT_COUNT       36
 #define PC_MODE_ITEMS    3              /* BoxParam.mode: Move Items      */
 
-static u32 rd32(const u8 *p) { return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24); }
-static u16 rd16(const u8 *p) { return (u16)((u32)p[0] | ((u32)p[1] << 8)); }
+/* The game's structs and the text banks, both in the host's order (a
+ * big-endian host's extractor turned the banks: sdk/types.h, bw_dr_rd16). */
+static u32 rd32(const u8 *p) { return bw_mem_rd32(p); }
+static u16 rd16(const u8 *p) { return bw_mem_rd16(p); }
 
 #ifdef BW_PC_TEST
 /* The test (tests/test_ui_pc.c) includes this file and builds stand-ins for

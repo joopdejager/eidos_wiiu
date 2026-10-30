@@ -13,3 +13,20 @@
 _ArenaTableTwl   4  0   GFL_HEAP_Init reads {u32 size, u32 unk} records (sdk/game_globals.c, BwEnvRes)
 _ArenaTableDs    4  0   the same table for the DS
 _MainSaveDesc    4  0   BACKUP_SYSTEM_Create reads it as SaveDataParam (six 32-bit words); declared as the incomplete struct SaveAreaDesc
+# ov170's box menu lists: BOX2_SEQ_DrawFrameList reads each as Ent[]
+# ({u16 a, u16 b}); box2_seq.c declares all but d_021EF908 as bytes
+d_021EF8EC   2  0   ov170 box menu list (Ent[])
+d_021EF908   2  0   ov170 box menu list (Ent[])
+d_021EF918   2  0   ov170 box menu list (Ent[])
+d_021EF928   2  0   ov170 box menu list (Ent[])
+d_021EF93C   2  0   ov170 box menu list (Ent[])
+d_021EF950   2  0   ov170 box menu list (Ent[])
+d_021EF964   2  0   ov170 box menu list (Ent[])
+d_021EF978   2  0   ov170 box menu list (Ent[])
+d_021EF98C   2  0   ov170 box menu list (Ent[])
+d_021EF9A0   2  0   ov170 box menu list (Ent[])
+d_021EF9B4   2  0   ov170 box menu list (Ent[])
+d_021EF9C8   2  0   ov170 box menu list (Ent[])
+d_021EF9E0   2  0   ov170 box menu list (Ent[])
+d_021EF9F8   2  0   ov170 box menu list (Ent[])
+d_021EFA10   2  0   ov170 box menu list (Ent[])

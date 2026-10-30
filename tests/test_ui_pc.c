@@ -723,22 +723,21 @@ static void test_text(void)
     };
     u32 lens[4] = { 3, 8, 4, 1 }, off = 4 + 8 * 4, i, j;
 
+    /* In the data root's order, as the extractor leaves a bank (sdk/types.h). */
     memset(bank, 0, sizeof(bank));
-    bank[0] = 1;
-    bank[2] = 4;
-    bank[12] = 16;
+    bw_dr_wr16(bank, 1);
+    bw_dr_wr16(bank + 2, 4);
+    bw_dr_wr32(bank + 12, 16);
     for (i = 0; i < 4; i++) {
         u16 key_ = (u16)((i + 3u) * 0x2983u);
         u8 *e = bank + 16 + 4 + 8 * i;
 
-        e[0] = (u8)off;
-        e[1] = (u8)(off >> 8);
-        e[4] = (u8)lens[i];
+        bw_dr_wr32(e, off);
+        bw_dr_wr16(e + 4, (u16)lens[i]);
         for (j = 0; j < lens[i]; j++) {
             u16 u = (u16)(plain[i][j] ^ key_);
 
-            bank[16 + off + 2 * j] = (u8)u;
-            bank[16 + off + 2 * j + 1] = (u8)(u >> 8);
+            bw_dr_wr16(bank + 16 + off + 2 * j, u);
             key_ = rotl3(key_);
         }
         off += 2 * lens[i];
@@ -1198,9 +1197,10 @@ static void test_popups(const char *outdir)
         static const u16 ids[6] = { 81, 74, 75, 76, 77, 80 };
         int i;
 
+        /* the loaded overlay's table, in the host's order (ovlink's swap
+         * runs turn it: tools/armdata_widths.txt) */
         for (i = 0; i < 6; i++) {
-            t6[4 * i] = (u8)ids[i];
-            t6[4 * i + 1] = (u8)(ids[i] >> 8);
+            bw_mem_wr16(t6 + 4 * i, ids[i]);
         }
         g_pc_test_lists[2] = t6;
     }
