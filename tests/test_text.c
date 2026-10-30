@@ -61,9 +61,9 @@ static int msg_parse(MsgFile *mf, u8 *raw, u32 size)
     }
     mf->raw = raw;
     mf->size = size;
-    mf->section_count = bw_rd16(raw + 0);
-    mf->entry_count = bw_rd16(raw + 2);
-    mf->section_offset0 = bw_rd32(raw + 12);
+    mf->section_count = bw_dr_rd16(raw + 0);
+    mf->entry_count = bw_dr_rd16(raw + 2);
+    mf->section_offset0 = bw_dr_rd32(raw + 12);
     if (mf->section_count < 1 || mf->section_count > 8) {
         return -1;
     }
@@ -87,7 +87,7 @@ static int msg_string_start(const MsgFile *mf, u32 index, u32 *start_out)
     if (pos + 8 > mf->size) {
         return -1;
     }
-    *start_out = MSG_HEADER_SIZE + bw_rd32(mf->raw + pos);
+    *start_out = MSG_HEADER_SIZE + bw_dr_rd32(mf->raw + pos);
     if (*start_out >= mf->size) {
         return -1;
     }
@@ -157,15 +157,16 @@ int main(int argc, char **argv)
          * Copy the raw run out of the bank into a u16 scratch buffer: the
          * matched cipher decrypts in place, and it must be given aligned
          * u16 storage, not a pointer into a byte buffer that may sit on an
-         * odd address.  The copy is byte-wise and little-endian, so the
-         * scratch holds the same code units on any host.
+         * odd address.  The copy reads the data root's order (a big-endian
+         * host's extractor turned the bank), so the scratch holds the same
+         * code units on any host.
          */
         avail = bank_size - start;
         units = avail / 2;
         scratch = (u16 *)malloc((size_t)(units + 1) * sizeof(u16));
         BW_REQUIRE("scratch", scratch != NULL);
         for (k = 0; k < units; k++) {
-            scratch[k] = bw_rd16(bank + start + k * 2);
+            scratch[k] = bw_dr_rd16(bank + start + k * 2);
         }
 
         decoded = MSGDATA_DecryptUnits(scratch, units, fx->entry);

@@ -2574,18 +2574,19 @@ static void names_load(void)
     sz = bw_arc_member_size(&arc, 203);
     d = sz > 16 ? (u8 *)malloc((size_t)sz) : NULL;
     if (d && bw_arc_read_member(&arc, 203, d, (u32)sz) == sz) {
-        cnt = rd_u16(d + 2);
-        base = rd_u32(d + 12);
+        /* The bank is in the data root's order (sdk/types.h, bw_dr_rd16). */
+        cnt = bw_dr_rd16(d + 2);
+        base = bw_dr_rd32(d + 12);
         if (cnt > NAME_MAX_MOVES)
             cnt = NAME_MAX_MOVES;
         for (i = 0; i < cnt && (size_t)base + 12 + (size_t)i * 8 <= (size_t)sz; i++) {
             const u8 *e = d + base + 4 + i * 8;
-            u32 off = rd_u32(e);
-            int len = rd_u16(e + 4), j, n = 0;
+            u32 off = bw_dr_rd32(e);
+            int len = bw_dr_rd16(e + 4), j, n = 0;
             u16 key = (u16)((i + 3) * 0x2983);
 
             for (j = 0; j < len && (size_t)base + off + (size_t)j * 2 + 2 <= (size_t)sz; j++) {
-                u16 c = (u16)(rd_u16(d + base + off + j * 2) ^ key);
+                u16 c = (u16)(bw_dr_rd16(d + base + off + j * 2) ^ key);
 
                 key = (u16)(((key & 0xE000) >> 13) | (u16)(key << 3));
                 if (c == 0xFFFF)

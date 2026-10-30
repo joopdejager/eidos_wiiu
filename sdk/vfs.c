@@ -75,11 +75,13 @@ const char *bw_data_root(void)
 }
 
 /*
- * Whether the data root's NARC framing is in this host's order: always on a
- * little-endian host; on a big-endian one only when the extractor turned it
- * (install/byteorder.c), which leaves "big-endian" in byte_order.txt beside
- * data/.  The game (eidos_boot) asks before it runs; a tree extracted on a
- * little-endian host would read every archive's offsets backwards.
+ * Whether the data root is in this host's order: always on a little-endian
+ * host; on a big-endian one only when the extractor turned it
+ * (install/byteorder.c), which leaves BW_BYTE_ORDER_MARK (sdk/types.h) in
+ * byte_order.txt beside data/.  The game (eidos_boot) asks before it runs;
+ * a tree extracted on a little-endian host would read every archive's
+ * offsets backwards, and one an older extractor turned would read the
+ * formats it did not turn backwards.
  */
 int bw_data_root_byte_order_ok(void)
 {
@@ -104,7 +106,8 @@ int bw_data_root_byte_order_ok(void)
         line[0] = '\0';
     }
     fclose(fp);
-    return strncmp(line, "big-endian", 10) == 0;
+    line[strcspn(line, "\r\n")] = '\0';
+    return strcmp(line, BW_BYTE_ORDER_MARK) == 0;
 #else
     return 1;
 #endif

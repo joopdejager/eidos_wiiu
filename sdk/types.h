@@ -207,13 +207,22 @@ static inline void bw_mem_wr32(u8 *p, u32 v)
 }
 
 /*
- * A number in a NARC's framing (header, BTAF, BTNF) in the data root.  The
- * extractor turns that framing into the host's order on a big-endian host
- * (install/byteorder.c), because the matched code reads it with native
- * loads, so the port reads and writes it in the host's order too.  The
- * four-byte tags stay bytes (bw_rd32 against a FOURCC), and the members'
- * own formats are still the cartridge's little-endian.
+ * A number in the data root that the extractor turns into the host's order
+ * on a big-endian host (install/byteorder.c), because the matched code
+ * reads it with native loads: a NARC's framing (header, BTAF, BTNF) and the
+ * formats byteorder.c lists (message banks).  The port reads and writes
+ * those in the host's order too.  The four-byte tags stay bytes (bw_rd32
+ * against a FOURCC), and every other format is still the cartridge's
+ * little-endian.
+ *
+ * BW_BYTE_ORDER_MARK is the first line of byte_order.txt beside data/ in a
+ * turned tree.  Its number counts the formats turned, so a tree an older
+ * extractor turned is refused instead of read half in each order:
+ *   1  NARC framing
+ *   2  and message banks (a/0/0/2, a/0/0/3)
  */
+#define BW_BYTE_ORDER_MARK "big-endian 2"
+
 #define bw_dr_rd16 bw_mem_rd16
 #define bw_dr_rd32 bw_mem_rd32
 #define bw_dr_wr16 bw_mem_wr16

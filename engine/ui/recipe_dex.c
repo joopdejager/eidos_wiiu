@@ -300,8 +300,9 @@ static const MsgCache *msg_file(u32 id)
     return g_msgs[g_msg_n++].data != NULL ? &g_msgs[g_msg_n - 1] : NULL;
 }
 
-static u32 le16(const u8 *p) { return (u32)p[0] | ((u32)p[1] << 8); }
-static u32 le32(const u8 *p) { return le16(p) | (le16(p + 2) << 16); }
+/* A text bank's numbers, in the data root's order (sdk/types.h). */
+static u32 bank16(const u8 *p) { return bw_dr_rd16(p); }
+static u32 bank32(const u8 *p) { return bw_dr_rd32(p); }
 
 static int put_utf8(char *o, int at, int cap, u32 u)
 {
@@ -335,8 +336,8 @@ static int msg_get(u32 file, u32 idx, char *out, int cap)
         return 0;
     }
     d = m->data;
-    langs = le16(d);
-    count = le16(d + 2);
+    langs = bank16(d);
+    count = bank16(d + 2);
     if (idx >= count || langs == 0) {
         return 0;
     }
@@ -348,20 +349,20 @@ static int msg_get(u32 file, u32 idx, char *out, int cap)
     if (12 + 4 * li + 4 > m->size) {
         return 0;
     }
-    off = le32(d + 12 + 4 * li);
+    off = bank32(d + 12 + 4 * li);
     if (off + 4 + (idx + 1) * 8 > m->size) {
         return 0;
     }
     sec = d + off;
     e = sec + 4 + idx * 8;
-    off = le32(e);
-    len = le16(e + 4);
+    off = bank32(e);
+    len = bank16(e + 4);
     if ((u32)(sec - d) + off + len * 2 > m->size) {
         return 0;
     }
     key = (u32)(((idx + 3) * 0x2983u) & 0xFFFFu);
     for (i = 0; i < len; i++) {
-        u32 u = le16(sec + off + i * 2) ^ key;
+        u32 u = bank16(sec + off + i * 2) ^ key;
 
         key = ((key & 0xE000u) >> 13) | ((key << 3) & 0xFFFFu);
         if (u == 0xFFFFu) {

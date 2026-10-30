@@ -255,14 +255,19 @@ void bw_fnt_sanitize(const u8 *raw, u32 len, char *out, size_t out_size);
 /* The host's byte order (install/byteorder.c)                         */
 /* ------------------------------------------------------------------ */
 
-/* Beside data/: present, and holding BW_BYTE_ORDER_BIG, when the tree's
- * NARC framing is in a big-endian host's order (sdk/vfs.c checks it). */
+/* Beside data/: present, and holding BW_BYTE_ORDER_MARK (sdk/types.h),
+ * when the tree is in a big-endian host's order (sdk/vfs.c checks it). */
 #define BW_BYTE_ORDER_FILE "byte_order.txt"
-#define BW_BYTE_ORDER_BIG  "big-endian"
 
 /* One NARC's framing (header, BTAF, BTNF) from little-endian into the
  * host's order, in place: 1 done, 0 not a NARC, -1 malformed. */
 int bw_narc_to_host(u8 *p, u32 n);
+
+/* One message bank (src/game/arm9/msgdata.c: the header, the language
+ * offsets, each section's size and entries, and the text units) from
+ * little-endian into the host's order, in place: 1 done, 0 empty, -1
+ * malformed. */
+int bw_msg_to_host(u8 *p, u32 n);
 
 /* Every NARC under extract_dir/data into the host's order and the marker
  * written, on a big-endian host; nothing on a little-endian one.  Refuses a

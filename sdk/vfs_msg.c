@@ -28,28 +28,26 @@
 #define MSG_NEWLINE 0xFFFEu
 #define MSG_CONTROL 0xF000u
 
+/* A bank's numbers and units are in the data root's order (sdk/types.h,
+ * bw_dr_rd16): a big-endian host's extractor turned them. */
 static u32 rd32(const u8 *p)
 {
-    return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24);
+    return bw_dr_rd32(p);
 }
 
 static u32 rd16(const u8 *p)
 {
-    return (u32)p[0] | ((u32)p[1] << 8);
+    return bw_dr_rd16(p);
 }
 
 static void wr32(u8 *p, u32 v)
 {
-    p[0] = (u8)v;
-    p[1] = (u8)(v >> 8);
-    p[2] = (u8)(v >> 16);
-    p[3] = (u8)(v >> 24);
+    bw_dr_wr32(p, v);
 }
 
 static void wr16(u8 *p, u32 v)
 {
-    p[0] = (u8)v;
-    p[1] = (u8)(v >> 8);
+    bw_dr_wr16(p, (u16)v);
 }
 
 void bw_msg_cipher(u16 *units, u32 count, u32 index)

@@ -20,14 +20,16 @@
 #include "vfs_msg.h"
 #include "port_test.h"
 
+/* A bank in the data root's order, as sdk/vfs_msg.c reads and writes it
+ * (a big-endian host's extractor turned the banks: sdk/types.h). */
 static u32 rd32(const u8 *p)
 {
-    return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24);
+    return bw_dr_rd32(p);
 }
 
 static u32 rd16(const u8 *p)
 {
-    return (u32)p[0] | ((u32)p[1] << 8);
+    return bw_dr_rd16(p);
 }
 
 /* ---- grammar ------------------------------------------------------ */
@@ -151,14 +153,11 @@ static Bank make_bank(u32 n, u32 flags)
 
     b.data = (u8 *)calloc(total, 1);
     b.size = total;
-    b.data[0] = 1;
-    b.data[2] = (u8)n;
-    b.data[3] = (u8)(n >> 8);
-    b.data[4] = (u8)(total - 16);
-    b.data[5] = (u8)((total - 16) >> 8);
-    b.data[12] = 16;
-    b.data[16] = (u8)(total - 16);
-    b.data[17] = (u8)((total - 16) >> 8);
+    bw_dr_wr16(b.data, 1);
+    bw_dr_wr16(b.data + 2, (u16)n);
+    bw_dr_wr32(b.data + 4, total - 16);
+    bw_dr_wr32(b.data + 12, 16);
+    bw_dr_wr32(b.data + 16, total - 16);
     for (i = 0; i < n; i++) {
         u16 s[3];
         u8 *e = b.data + 20 + 8 * i;
@@ -169,13 +168,11 @@ static Bank make_bank(u32 n, u32 flags)
         s[2] = 0xFFFF;
         bw_msg_cipher(s, 3, i);
         for (j = 0; j < 3; j++) {
-            b.data[16 + off + 2 * j] = (u8)s[j];
-            b.data[16 + off + 2 * j + 1] = (u8)(s[j] >> 8);
+            bw_dr_wr16(b.data + 16 + off + 2 * j, s[j]);
         }
-        e[0] = (u8)off;
-        e[1] = (u8)(off >> 8);
-        e[4] = 3;
-        e[6] = (u8)flags;
+        bw_dr_wr32(e, off);
+        bw_dr_wr16(e + 4, 3);
+        bw_dr_wr16(e + 6, (u16)flags);
         off += 6;
     }
     return b;
@@ -285,7 +282,7 @@ static int test_merge_synthetic(void)
     bw_msg_free(out);
 
     /* a malformed bank is refused */
-    b.data[0] = 2;
+    bw_dr_wr16(b.data, 2);
     BW_CHECK_EQ("bad bank", bw_msg_merge(b.data, b.size, mods, 1, &out, &out_size), -1);
 
     bw_msg_lines_free(&m1);

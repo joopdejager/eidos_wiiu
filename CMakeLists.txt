@@ -2390,6 +2390,13 @@ target_link_libraries(test_extract PRIVATE eidos_install)
 add_dependencies(test_extract bw_synth)
 add_test(NAME test_extract COMMAND test_extract ${BW_SYNTH_DIR})
 
+# install/byteorder.c on hand-built containers: a NARC's framing and a
+# message bank turned into the host's order (a no-op on a little-endian one).
+add_executable(test_byteorder ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_byteorder.c)
+target_include_directories(test_byteorder PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+target_link_libraries(test_byteorder PRIVATE eidos_install)
+add_test(NAME test_byteorder COMMAND test_byteorder)
+
 # The data root's location, check, config file, reset and move, and the
 # headless first run, on synthetic trees and the synthetic cartridge.  The
 # test sets its own eidos home, so it never reads or writes the real one;

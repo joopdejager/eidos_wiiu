@@ -14,8 +14,19 @@
  * What is turned: the NARC header's numbers, the BTAF chunk (count and
  * every start/end word), the BTNF chunk (the directory table and the
  * directory ids in its name lists) and every chunk's size.  The four-byte
- * tags stay bytes; the members' own contents (GMIF) are other formats and
- * are not touched here.  A little-endian host does nothing.
+ * tags stay bytes.  The members' own contents (GMIF) are other formats:
+ * those of the archives in k_formats are turned by their format's function
+ * first, while the framing still says where they are; the rest are left as
+ * they are.  A little-endian host does nothing.
+ *
+ * The formats:
+ *
+ *   a/0/0/2, a/0/0/3, and member 1 of a/1/1/1..a/1/1/4 (the musicals'
+ *   stages): message banks (src/game/arm9/msgdata.c), read by
+ *   MSGDATA_LoadFileHeader, MSGDATA_LoadBank and MSGDATA_ReadUnits with
+ *   native loads, the text included: MSGDATA_DecryptUnits XORs each u16
+ *   unit as a number, so the units are turned before the cipher sees them
+ *   (bw_msg_to_host).
  */
 
 #if !defined(_WIN32)
@@ -81,6 +92,139 @@ static int fnt_to_host(u8 *fnt, u32 len)
     return 0;
 }
 
+int bw_msg_to_host(u8 *p, u32 n)
+{
+    u32 langs, count, l;
+
+    if (n == 0) {
+        return 0;
+    }
+    if (n < 12) {
+        return -1;
+    }
+    langs = le16(p);
+    count = le16(p + 2);
+    if (langs == 0 || 12u + 4u * langs > n) {
+        return -1;
+    }
+    for (l = 0; l < langs; l++) {
+        u32 at = le32(p + 12 + 4u * l), size, i;
+        u8 *sec, *done;
+
+        if (at > n - 4u) {
+            return -1;
+        }
+        sec = p + at;
+        size = le32(sec);
+        if (size > n - at || 4u + 8ull * count > size) {
+            return -1;
+        }
+        /* One flag per unit: two entries sharing text turn it once. */
+        done = (u8 *)calloc(size / 2u + 1u, 1);
+        if (done == NULL) {
+            return -1;
+        }
+        for (i = 0; i < count; i++) {
+            u8 *e = sec + 4 + 8u * i;
+            u32 off = le32(e), units = le16(e + 4), k;
+
+            if ((off & 1u) != 0 || (u64)off + 2ull * units > size) {
+                free(done);
+                return -1;
+            }
+            for (k = 0; k < units; k++) {
+                u32 at2 = off / 2u + k;
+
+                if (!done[at2]) {
+                    fix16(sec + 2u * at2);
+                    done[at2] = 1;
+                }
+            }
+            fix32(e);
+            fix16(e + 4);
+            fix16(e + 6);
+        }
+        free(done);
+        fix32(sec);
+    }
+    for (l = 0; l < langs; l++) {
+        fix32(p + 12 + 4u * l);
+    }
+    fix16(p);
+    fix16(p + 2);
+    fix32(p + 4);
+    fix32(p + 8);
+    return 1;
+}
+
+/* The members of the little-endian NARC at `p` given to `fn`: every one,
+ * or only member `only` when it is not -1. */
+static int narc_members_to_host(u8 *p, u32 n, int (*fn)(u8 *, u32), int only)
+{
+    u32 pos, sections, s, btaf = 0, gmif = 0;
+
+    if (n < 16 || memcmp(p, "NARC", 4) != 0) {
+        return -1;
+    }
+    pos = le16(p + 12);
+    sections = le16(p + 14);
+    for (s = 0; s < sections && pos >= 16 && pos <= n - 8u; s++) {
+        u32 size = le32(p + pos + 4);
+
+        if (size < 8 || size > n - pos) {
+            return -1;
+        }
+        if (memcmp(p + pos, "BTAF", 4) == 0) {
+            btaf = pos;
+        } else if (memcmp(p + pos, "GMIF", 4) == 0) {
+            gmif = pos;
+        }
+        pos += size;
+    }
+    if (btaf == 0 || gmif == 0) {
+        return -1;
+    }
+    {
+        u32 count = le16(p + btaf + 8), i;
+        u32 gsize = le32(p + gmif + 4) - 8u;
+
+        if ((u64)count * 8u > le32(p + btaf + 4) - 12u) {
+            return -1;
+        }
+        for (i = 0; i < count; i++) {
+            u32 a = le32(p + btaf + 12 + 8u * i), b = le32(p + btaf + 16 + 8u * i);
+
+            if (only >= 0 && i != (u32)only) {
+                continue;
+            }
+            if (a > b || b > gsize || fn(p + gmif + 8 + a, b - a) < 0) {
+                return -1;
+            }
+        }
+        if (only >= 0 && (u32)only >= count) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static const struct {
+    const char *path;                   /* under data/ */
+    int member;                         /* -1: every member */
+    int (*fn)(u8 *, u32);
+    const char *what;
+} k_formats[] = {
+    /* The text archives (arc ids 2 and 3). */
+    { "a/0/0/2", -1, bw_msg_to_host, "malformed message bank" },
+    { "a/0/0/3", -1, bw_msg_to_host, "malformed message bank" },
+    /* The musicals' stage archives (arc ids 0x6F..0x72): member 1 is the
+     * stage's message bank (MUSICAL_MCSS_LoadDistSave, ov112). */
+    { "a/1/1/1", 1, bw_msg_to_host, "malformed message bank" },
+    { "a/1/1/2", 1, bw_msg_to_host, "malformed message bank" },
+    { "a/1/1/3", 1, bw_msg_to_host, "malformed message bank" },
+    { "a/1/1/4", 1, bw_msg_to_host, "malformed message bank" },
+};
+
 int bw_narc_to_host(u8 *p, u32 n)
 {
     u32 pos, sections, s;
@@ -137,7 +281,8 @@ static void say(char *err, size_t err_len, const char *what, const char *path)
     }
 }
 
-static int file_to_host(const char *path, u32 *converted, char *err, size_t err_len)
+static int file_to_host(const char *path, const char *rel, u32 *converted,
+                        char *err, size_t err_len)
 {
     FILE *fp = fopen(path, "rb");
     u8 head[4];
@@ -166,6 +311,15 @@ static int file_to_host(const char *path, u32 *converted, char *err, size_t err_
         return -1;
     }
     fclose(fp);
+    for (rc = 0; rc < (int)(sizeof(k_formats) / sizeof(k_formats[0])); rc++) {
+        if (strcmp(rel, k_formats[rc].path) == 0
+            && narc_members_to_host(buf, (u32)size, k_formats[rc].fn,
+                                    k_formats[rc].member) != 0) {
+            free(buf);
+            say(err, err_len, k_formats[rc].what, path);
+            return -1;
+        }
+    }
     rc = bw_narc_to_host(buf, (u32)size);
     if (rc < 0) {
         free(buf);
@@ -190,7 +344,7 @@ static int file_to_host(const char *path, u32 *converted, char *err, size_t err_
     return 0;
 }
 
-static int walk(const char *dir, u32 *converted, char *err, size_t err_len)
+static int walk(const char *dir, const char *rel, u32 *converted, char *err, size_t err_len)
 {
     DIR *d = opendir(dir);
     struct dirent *e;
@@ -201,20 +355,22 @@ static int walk(const char *dir, u32 *converted, char *err, size_t err_len)
         return -1;
     }
     while (rc == 0 && (e = readdir(d)) != NULL) {
-        char path[1024];
+        char path[1024], sub[1024];
         struct stat st;
 
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) {
             continue;
         }
         if ((size_t)snprintf(path, sizeof(path), "%s/%s", dir, e->d_name) >= sizeof(path)
+            || (size_t)snprintf(sub, sizeof(sub), "%s%s%s", rel, *rel ? "/" : "",
+                                e->d_name) >= sizeof(sub)
             || stat(path, &st) != 0) {
             say(err, err_len, "cannot read", path);
             rc = -1;
         } else if (S_ISDIR(st.st_mode)) {
-            rc = walk(path, converted, err, err_len);
+            rc = walk(path, sub, converted, err, err_len);
         } else if (S_ISREG(st.st_mode)) {
-            rc = file_to_host(path, converted, err, err_len);
+            rc = file_to_host(path, sub, converted, err, err_len);
         }
     }
     closedir(d);
@@ -237,12 +393,12 @@ int bw_tree_to_host_order(const char *extract_dir, u32 *converted, char *err, si
         return -1;
     }
     snprintf(path, sizeof(path), "%s/data", extract_dir);
-    if (walk(path, &n, err, err_len) != 0) {
+    if (walk(path, "", &n, err, err_len) != 0) {
         return -1;
     }
     snprintf(path, sizeof(path), "%s/%s", extract_dir, BW_BYTE_ORDER_FILE);
     if ((fp = fopen(path, "w")) == NULL
-        || fputs(BW_BYTE_ORDER_BIG "\n", fp) < 0 || fclose(fp) != 0) {
+        || fputs(BW_BYTE_ORDER_MARK "\n", fp) < 0 || fclose(fp) != 0) {
         say(err, err_len, "cannot write", path);
         return -1;
     }
