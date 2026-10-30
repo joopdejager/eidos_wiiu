@@ -2893,6 +2893,13 @@ if(NOT MSVC AND NOT APPLE AND EIDOS_BOOT AND TARGET eidos_platform)
     target_compile_definitions(eidos_platform PRIVATE EIDOS_WRAP_PMVOICE=1)
 endif()
 
+# Without the platform layer (EIDOS_SDL=OFF) the game's patches still call
+# the settings; a headless boot links inert ones (engine/platform/settings_none.c).
+if(EIDOS_BOOT AND NOT TARGET eidos_platform)
+    target_sources(eidos_boot PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/settings_none.c)
+endif()
+
 # Instant text (Extras): the game's text streams start, and change speed,
 # through the port first (engine/platform/text_instant.c).  GNU ld only, and
 # only with the game's boot and the settings in the link.
