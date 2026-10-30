@@ -8,12 +8,18 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `debe79c44db05240ab4e0b9c739c68f6a8630d1e`
+- Revision: `17086227f7541456afbe6a59f92df69ced178b83`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-10-30 02:09:56 +0000
-- Subject: RtcCommonCallback reads the year through its bitfield on the PC build
+- Date: 2026-10-30 11:05:09 +0000
+- Subject: GdsPacketDownload keeps its key at +4 on PowerPC and ARM EABI hosts
 
-The step from `6c2aae879f`: RtcCommonCallback's date+time sequence read the
+The step from `debe79c44d`: the GDS download request's long long sits at +4
+on the DS; a PowerPC or ARM EABI host padded it to +8 and the struct's
+size check failed. The host declares it through a long long typedef aligned
+to 4. The DS source is unchanged (the plain long long stays under
+`__MWERKS__`).
+
+The step before, from `6c2aae879f`: RtcCommonCallback's date+time sequence read the
 year with a raw u32 load of RTCRawDate masked to its low byte; the host
 branch reads the RTCRawDate.year bitfield, the same byte on a little-endian
 host and the right one under EIDOS_SSO, where RTCRawDate keeps the DS order
