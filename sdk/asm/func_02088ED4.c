@@ -37,9 +37,23 @@ typedef struct BwRtcBssHead {
 
 extern BwRtcBssHead g_02151428;
 
+/* The lock as the matched C stores it (types.h, bw_gs_rd32), byte by byte
+ * through a volatile lvalue so every pass reloads it. */
+static u32 rtc_lock(void)
+{
+    const volatile u8 *p = (const volatile u8 *)&g_02151428.rtcWork.lock;
+    u8 b[4];
+
+    b[0] = p[0];
+    b[1] = p[1];
+    b[2] = p[2];
+    b[3] = p[3];
+    return bw_gs_rd32(b);
+}
+
 void RtcWaitBusy(void)
 {
-    while (*(volatile u32 *)&g_02151428.rtcWork.lock == 1u) {
+    while (rtc_lock() == 1u) {
     }
 }
 

@@ -22,8 +22,10 @@
  *   0x02FFFDEC  time: BCD hour bits 0-5, PM flag bit 6, minute 8-14,
  *               second 16-22 (also the alarm registers)
  *
- * The block is ARM9 memory the matched code reads with native loads, so it
- * is written with native stores here.  The clock is in 24-hour mode (the
+ * The block is ARM9 memory the matched code reads through its RTCRawDate,
+ * RTCRawTime, RTCRawStatus2 and RTCRawAlarm bitfield structs, so it is
+ * written as those structs store it (types.h, bw_gs_wr32: host order, or
+ * the DS order under EIDOS_SSO).  The clock is in 24-hour mode (the
  * SDK sets it so at boot); the chip's PM flag is set for hours 12-23.
  * Writes to the date and time are acknowledged and not applied: the host
  * clock is not the game's to set.  Status and alarm writes are kept and
@@ -126,22 +128,22 @@ static void now(BwArm7Time *out)
 
 static void put32(u32 addr, u32 v)
 {
-    *(volatile u32 *)bw_ds_ptr(addr) = v;
+    bw_gs_wr32((u8 *)bw_ds_ptr(addr), v);
 }
 
 static u32 get32(u32 addr)
 {
-    return *(volatile u32 *)bw_ds_ptr(addr);
+    return bw_gs_rd32((const u8 *)bw_ds_ptr(addr));
 }
 
 static void put16(u32 addr, u16 v)
 {
-    *(volatile u16 *)bw_ds_ptr(addr) = v;
+    bw_gs_wr16((u8 *)bw_ds_ptr(addr), v);
 }
 
 static u16 get16(u32 addr)
 {
-    return *(volatile u16 *)bw_ds_ptr(addr);
+    return bw_gs_rd16((const u8 *)bw_ds_ptr(addr));
 }
 
 static u32 raw_date(const BwArm7Time *t)

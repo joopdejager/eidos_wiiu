@@ -280,6 +280,18 @@ static void rtc_done(int result, void *arg)
     g_rtc_result = result;
 }
 
+/* A u32 the game wrote through one of its own structs (types.h,
+ * bw_gs_rd32): the RTC block and the RTCDate/RTCTime it fills.            */
+static u32 gs32(const void *p)
+{
+    return bw_gs_rd32((const u8 *)p);
+}
+
+static u16 gs16_at(u32 addr)
+{
+    return bw_gs_rd16((const u8 *)bw_ds_ptr(addr));
+}
+
 static void test_rtc(void)
 {
     static const BwArm7Time t = { 2026, 10, 1, 4, 13, 45, 30 };
@@ -293,22 +305,22 @@ static void test_rtc(void)
     BW_CHECK_EQ("rtc: request", RTC_GetDateTimeAsync(&date, &time, rtc_done, NULL), 0);
     BW_CHECK_EQ("rtc: callback", g_rtc_calls, 1);
     BW_CHECK_EQ("rtc: result", g_rtc_result, 0);
-    BW_CHECK_EQ("rtc: raw date", rd32(0x02FFFDE8u), 0x04011026u);
-    BW_CHECK_EQ("rtc: raw time", rd32(0x02FFFDECu), 0x00304553u);
-    BW_CHECK_EQ("rtc: year", date.year, 26);
-    BW_CHECK_EQ("rtc: month", date.month, 10);
-    BW_CHECK_EQ("rtc: day", date.day, 1);
-    BW_CHECK_EQ("rtc: weekday", date.week, 4);
-    BW_CHECK_EQ("rtc: hour", time.hour, 13);
-    BW_CHECK_EQ("rtc: minute", time.minute, 45);
-    BW_CHECK_EQ("rtc: second", time.second, 30);
+    BW_CHECK_EQ("rtc: raw date", gs32(bw_ds_ptr(0x02FFFDE8u)), 0x04011026u);
+    BW_CHECK_EQ("rtc: raw time", gs32(bw_ds_ptr(0x02FFFDECu)), 0x00304553u);
+    BW_CHECK_EQ("rtc: year", gs32(&date.year), 26);
+    BW_CHECK_EQ("rtc: month", gs32(&date.month), 10);
+    BW_CHECK_EQ("rtc: day", gs32(&date.day), 1);
+    BW_CHECK_EQ("rtc: weekday", gs32(&date.week), 4);
+    BW_CHECK_EQ("rtc: hour", gs32(&time.hour), 13);
+    BW_CHECK_EQ("rtc: minute", gs32(&time.minute), 45);
+    BW_CHECK_EQ("rtc: second", gs32(&time.second), 30);
 
     /* Status 2 is kept by the ARM7 and read back.                          */
-    *(volatile u16 *)bw_ds_ptr_w(0x02FFFDEAu, sizeof(volatile u16)) = 0x0044;
+    bw_gs_wr16((u8 *)bw_ds_ptr(0x02FFFDEAu), 0x0044);   /* RTCRawStatus2 */
     BW_CHECK_EQ("rtc: write status 2", RTCi_WriteRawStatus2Async(), 1);
-    *(volatile u16 *)bw_ds_ptr_w(0x02FFFDEAu, sizeof(volatile u16)) = 0;
+    bw_gs_wr16((u8 *)bw_ds_ptr(0x02FFFDEAu), 0);
     BW_CHECK_EQ("rtc: read status 2", RtcSendPxiCommand(0x17), 1);
-    BW_CHECK_EQ("rtc: status 2 read back", rd16(0x02FFFDEAu), 0x0044);
+    BW_CHECK_EQ("rtc: status 2 read back", gs16_at(0x02FFFDEAu), 0x0044);
 
     /* An unknown command is refused with the SDK's invalid-command code.   */
     PXI_SetFifoRecvCallback(BW_PXI_TAG_RTC, recorder);

@@ -8,11 +8,19 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `6c2aae879f123bcbc028cf6a8b7f8df614402ac8`
-- Date: 2026-10-29 14:38:15 +0100
-- Subject: Move cursor actors read their animation from the right slot on the PC build
+- Revision: `debe79c44db05240ab4e0b9c739c68f6a8630d1e`
+  (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
+- Date: 2026-10-30 02:09:56 +0000
+- Subject: RtcCommonCallback reads the year through its bitfield on the PC build
 
-The step from `515b939e9b`: BTLV_INPUT_CreateWazaCursorActors' host branch read
+The step from `6c2aae879f`: RtcCommonCallback's date+time sequence read the
+year with a raw u32 load of RTCRawDate masked to its low byte; the host
+branch reads the RTCRawDate.year bitfield, the same byte on a little-endian
+host and the right one under EIDOS_SSO, where RTCRawDate keeps the DS order
+and the raw load read the weekday byte. The DS source is unchanged (the raw
+load stays under `__MWERKS__`).
+
+The step before, from `515b939e9b`: BTLV_INPUT_CreateWazaCursorActors' host branch read
 the move cursors' animation sequence 0x20 bytes past the right slot, a
 leftover byte that crashed the 32-bit build at a trainer battle's second
 action menu (the 64-bit build read a harmless value by luck); the DS bytes
