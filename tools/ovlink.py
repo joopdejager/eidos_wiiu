@@ -3037,6 +3037,9 @@ def write_overlay_c(link, st, path):
     w("    k_funcs, %du," % len(funcs))
     w("    k_anchors, %du," % len(anchors))
     w("    k_objects, %du," % len(objs))
+    w("    NULL, 0u,")
+    # No swap runs yet: an overlay's data stays the DS's little-endian
+    # bytes, which only a little-endian host reads right (sdk/armdata.h).
     w("    NULL, 0u")
     w("};")
     w("")

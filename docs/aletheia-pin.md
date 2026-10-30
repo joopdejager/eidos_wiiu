@@ -8,12 +8,18 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `17086227f7541456afbe6a59f92df69ced178b83`
+- Revision: `2fdfac0dfa680d201a8d75290ed4b0dd01b69b75`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-10-30 11:05:09 +0000
-- Subject: GdsPacketDownload keeps its key at +4 on PowerPC and ARM EABI hosts
+- Date: 2026-10-30 15:09:55 +0000
+- Subject: A NARC's two-byte file count reads into a halfword on a host
 
-The step from `debe79c44d`: the GDS download request's long long sits at +4
+The step from `17086227f7`: ARC_TOOL_SeekMember, ARC_TOOL_GetArchiveFileCount,
+unit_02048DDC and func_02049030 read a NARC's two-byte BTAF count into a
+zeroed u32, which a big-endian host fills from its high half. The host
+branch reads a u16 and widens it. The DS source is unchanged (the u32 read
+stays under `__MWERKS__`).
+
+The step before, from `debe79c44d`: the GDS download request's long long sits at +4
 on the DS; a PowerPC or ARM EABI host padded it to +8 and the struct's
 size check failed. The host declares it through a long long typedef aligned
 to 4. The DS source is unchanged (the plain long long stays under
