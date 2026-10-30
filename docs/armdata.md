@@ -143,6 +143,23 @@ the one case so far (`sdk/fs.c`, `CRYPTOi__BN_lshift1`, maps it back with
 and the boot runs to the title menu with every screen the same, pixel for
 pixel, as the identity-mapped run.
 
+**Byte order.** The image is the DS's, little-endian, and the matched code
+reads it with native loads. On a big-endian host (the Wii U's PowerPC)
+`bw_data_relocate` ends by turning the image's 16- and 32-bit runs into the
+host's order (`swap_to_host`), except the words the relocation and the two
+scans wrote host pointers into, which compared against the image's own
+little-endian words first and are host-ordered already. The runs
+(`BwDataImage.swaps`) are generated from, in this order of trust:
+`tools/armdata_widths.txt`, a short hand list of objects that only their
+consumer types (the heap's arena tables, read as `{u32, u32}` records;
+`_MainSaveDesc`, read as `SaveDataParam`); the build's `extern` declarations,
+for an object data_objects.json types only as bytes (its fallback), when
+every declaration agrees (`extern u32 GXi_DmaId;`, or a struct whose fields
+are all one width); and data_objects.json's own types (numeric elements,
+struct fields, pointer tables) and every listed pointer word. Strings, byte
+arrays and objects of unknown layout are left alone. A little-endian host
+generates the same table and never reads it.
+
 **A code pointer and a mod's hook.** A word that holds the address of a
 function is called through, so it does not pass a call site and the slot the
 build puts there never sees it. The relocation therefore asks the registry

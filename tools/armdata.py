@@ -80,6 +80,7 @@ _PARSES = alcache.ParseCache("armdata-sourcefile", [
 
 EIDOS_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_EXCLUSIONS = os.path.join(EIDOS_ROOT, "tools", "armdata_exclusions.txt")
+WIDTHS_FILE = os.path.join(EIDOS_ROOT, "tools", "armdata_widths.txt")
 # The hookable set (docs/mod-interface.md, section 1): the rows a mod may
 # override.  The ARM9's rows are the addresses the code entries table
 # carries, so a code pointer stored in the data reaches the registry for
@@ -303,10 +304,30 @@ class SourceFile:
         self.identifiers = set()
         self.header_functions = []        # (name, address) from the header
         self.header_isa = None            # "arm" / "thumb" from the header
+        self.decl_widths = {}             # extern name -> element width (decl_width)
+        self.decl_structs = {}            # extern name -> struct tag it is declared as
+        self.struct_widths = {}           # struct tag -> its one field width, or None
         self._header(text)
         self._symbols(text)
         code = strip_c(text)
         self._scan(code)
+        for dm in _EXTERN_DECL_RE.finditer(code):
+            w = decl_width(dm.group(1))
+            if w is not None:
+                self.decl_widths[dm.group(2)] = w
+            else:
+                sm = re.match(r"\s*(?:const\s+|volatile\s+)*struct\s+([A-Za-z_]\w*)\s*$", dm.group(1))
+                if sm:
+                    self.decl_structs[dm.group(2)] = sm.group(1)
+        for sm in _STRUCT_DEF_RE.finditer(code):
+            ws = set()
+            for member in sm.group(2).split(";"):
+                member = member.strip()
+                if not member:
+                    continue
+                mm = re.match(r"(.*?)\b[A-Za-z_]\w*\s*(?:\[[^\]]*\]\s*)*$", member)
+                ws.add(decl_width(mm.group(1)) if mm and ":" not in member else None)
+            self.struct_widths[sm.group(1)] = ws.pop() if len(ws) == 1 else None
         # src/game now shares extern object declarations through headers.
         # A referenced data symbol in the unit's address manifest still
         # needs a binding when its declaration is no longer in this file.
@@ -606,6 +627,121 @@ def object_pointer_words(obj):
         if t:
             res.append((int(obj["addr"], 16) + off, t))
     return res
+
+
+_STRUCT_DEF_RE = re.compile(r"\bstruct\s+([A-Za-z_]\w*)\s*\{([^{}]*)\}")
+_EXTERN_DECL_RE = re.compile(
+    r"\bextern\s+([A-Za-z_][^;{}()=]*?)\b([A-Za-z_]\w*)\s*(?:\[[^;\]]*\]\s*)*;")
+_WIDTH_OF = {
+    "u8": 1, "s8": 1, "vu8": 1, "vs8": 1, "char": 1,
+    "u16": 2, "s16": 2, "vu16": 2, "vs16": 2, "short": 2, "fx16": 2, "GXRgb": 2,
+    "u32": 4, "s32": 4, "vu32": 4, "vs32": 4, "int": 4, "long": 4, "fx32": 4,
+    "BOOL": 4, "uptr": 4, "OSIntrMode": 4,
+    "u64": 8, "s64": 8, "vu64": 8, "fx64": 8,
+}
+
+
+def decl_width(type_text):
+    """The element width an `extern` declaration's type gives its object
+    (a pointer is a 32-bit word), or None for a struct, a union or a type
+    this does not know."""
+    t = type_text.strip()
+    if "*" in t:
+        return 4
+    words = [w for w in re.findall(r"[A-Za-z_]\w*", t)
+             if w not in ("const", "volatile", "static", "signed", "unsigned")]
+    if not words:
+        return 4 if "unsigned" in t or "signed" in t else None
+    if words[0] in ("struct", "union", "enum"):
+        return 4 if words[0] == "enum" else None
+    if words == ["long", "long"]:
+        return 8
+    return _WIDTH_OF.get(words[-1])
+
+
+def object_swap_runs(obj):
+    """(address, size, width) of the 16- and 32-bit runs of one data object:
+    the words a big-endian host turns into its own order when the image is
+    loaded (sdk/armdata.c, swap_to_host).  Strings, byte arrays, zero and raw
+    objects have none."""
+    base = int(obj["addr"], 16)
+    kind = obj["kind"]
+    if kind == "numeric":
+        width = {"u16": 2, "s16": 2, "u32": 4, "s32": 4}.get(obj.get("elem"))
+        return [(base, obj["size"] - obj["size"] % width, width)] if width else []
+    if kind == "pointer_table":
+        return [(base, 4 * obj.get("count", obj["size"] // 4), 4)]
+    if kind == "struct":
+        out, off = [], 0
+        for typ, count in obj.get("fields", []):
+            size = {"ptr": 4, "u32": 4, "s32": 4, "u16": 2, "s16": 2,
+                    "u8": 1, "s8": 1}[typ]
+            if size > 1:
+                out.append((base + off, size * count, size))
+            off += size * count
+        return out
+    return []
+
+
+def declared_swap_runs(m):
+    """Runs for the data objects the metadata types only as bytes (its
+    fallback when nothing else showed, `numeric` u8 or `raw`) whose name a
+    build source declares as a wider scalar or pointer: GXi_DmaId is
+    `extern u32 GXi_DmaId;` and four u8 in data_objects.json.  The width is
+    taken only when every declaration of every name at the address agrees."""
+    weak = {}
+    for o in m.objects:
+        if o["kind"] == "raw" or (o["kind"] == "numeric" and o.get("elem") in ("u8", "s8")):
+            weak[int(o["addr"], 16)] = o["size"]
+    widths = {}
+    struct_widths = {}
+    for sf in m.sources:
+        for tag, w in sf.struct_widths.items():
+            struct_widths.setdefault(tag, set()).add(w)
+    for sf in m.sources:
+        decls = dict(sf.decl_widths)
+        for name, tag in sf.decl_structs.items():
+            ws = struct_widths.get(tag, set())
+            if len(ws) == 1 and None not in ws:
+                decls[name] = next(iter(ws))
+        for name, w in decls.items():
+            e = m.names.get(name)
+            if e is not None:
+                widths.setdefault(e["addr"], set()).add(w)
+    out = []
+    for addr, ws in widths.items():
+        size = weak.get(addr)
+        if size is None or len(ws) != 1:
+            continue
+        w = ws.pop()
+        if w in (2, 4, 8) and addr % min(w, 4) == 0 and size >= w:
+            out.append((addr, size - size % w, w))
+    # tools/armdata_widths.txt: objects their consumer reads wider.
+    sizes = {int(o["addr"], 16): o["size"] for o in m.objects}
+    if os.path.exists(WIDTHS_FILE):
+        with open(WIDTHS_FILE, encoding="utf-8") as fh:
+            for line in fh:
+                f = line.split("#", 1)[0].split()
+                if len(f) < 2 or f[0] not in m.names:
+                    continue
+                addr = m.names[f[0]]["addr"]
+                w = int(f[1], 0)
+                size = int(f[2], 0) if len(f) > 2 and f[2].isdigit() and int(f[2], 0) else (
+                    sizes.get(addr) or m.names[f[0]].get("size") or w)
+                out = [r for r in out if r[0] != addr]
+                out.append((addr, size - size % w, w))
+    return out
+
+
+def merge_runs(runs):
+    """Sorted runs with adjacent ones of one width joined; overlaps dropped."""
+    out = []
+    for a, n, w in sorted(set(runs)):
+        if out and out[-1][2] == w and out[-1][0] + out[-1][1] == a:
+            out[-1] = (out[-1][0], out[-1][1] + n, w)
+        elif not out or a >= out[-1][0] + out[-1][1]:
+            out.append((a, n, w))
+    return out
 
 
 ANNOT = re.compile(
@@ -1607,6 +1743,19 @@ def write_c(m: Model, path: str):
         w("    { 0, 0, 0, 0 }")
     w("};")
     w("")
+    # The 16- and 32-bit runs a big-endian host turns into its own order
+    # (data_objects.json's types, and every listed pointer word).
+    swaps = merge_runs([r for o in m.objects for r in object_swap_runs(o)]
+                       + [(r["where"], 4, 4) for r in m.relocs]
+                       + declared_swap_runs(m))
+    w("/* The 16- and 32-bit runs of the data, for a big-endian host. */")
+    w("static const BwDataSwap k_swap[] = {")
+    for a, n, wd in swaps:
+        w("    { 0x%08Xu, 0x%Xu, %u }," % (a, n, wd))
+    if not swaps:
+        w("    { 0, 0, 0 }")
+    w("};")
+    w("")
     w("static const BwDataObject k_objects[] = {")
     for n in objs:
         e = m.names[n]
@@ -1624,7 +1773,8 @@ def write_c(m: Model, path: str):
     w("    k_funcs, %u," % len(m.funcs))
     w("    k_anchors, %u," % len(anchors))
     w("    k_objects, %u," % sum(1 for n in objs if m.names[n]["registered"]))
-    w("    k_scan, %u" % len(m.scan_ranges))
+    w("    k_scan, %u," % len(m.scan_ranges))
+    w("    k_swap, %u" % len(swaps))
     w("};")
     w("")
     with open(path, "w", encoding="utf-8", newline="\n") as fh:

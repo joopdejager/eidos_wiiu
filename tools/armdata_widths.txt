@@ -1,0 +1,14 @@
+# tools/armdata_widths.txt -- element widths of ARM9 data objects that
+# neither layout/data_objects.json nor a declaration types.
+#
+# A big-endian host turns the 16- and 32-bit runs of the image into its own
+# order when the image is loaded (sdk/armdata.c, swap_to_host).  The runs
+# come from data_objects.json's types and, where it only has bytes (its
+# fallback when nothing else showed), from the `extern` declarations of the
+# build's sources (tools/armdata.py, declared_swap_runs).  An object that is
+# declared as bytes too, and that its consumer reads as wider words, is
+# listed here: the name, the width, the bytes it covers (0: the object's
+# whole extent), then why.  An entry here wins over both.
+_ArenaTableTwl   4  0   GFL_HEAP_Init reads {u32 size, u32 unk} records (sdk/game_globals.c, BwEnvRes)
+_ArenaTableDs    4  0   the same table for the DS
+_MainSaveDesc    4  0   BACKUP_SYSTEM_Create reads it as SaveDataParam (six 32-bit words); declared as the incomplete struct SaveAreaDesc

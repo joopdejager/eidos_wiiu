@@ -79,6 +79,26 @@ static const BwDataImage *g_flat_img;
 static u32                g_scanned;
 static u32                g_scanned_data;
 
+/* The DS addresses of the words this relocation wrote a host pointer into:
+ * already in the host's order, so swap_to_host leaves them alone. */
+static u32 *g_done;
+static u32  g_done_count, g_done_cap;
+
+static void done_add(u32 where)
+{
+    if (g_done_count == g_done_cap) {
+        u32 n = g_done_cap != 0u ? g_done_cap * 2u : 1024u;
+        u32 *grown = (u32 *)realloc(g_done, n * sizeof(u32));
+
+        if (grown == NULL) {
+            bw_panic("bw_data_relocate", where, "out of memory");
+        }
+        g_done = grown;
+        g_done_cap = n;
+    }
+    g_done[g_done_count++] = where;
+}
+
 /*
  * The code words the port rewrote, so a hook installed later can be put in
  * their place (bw_arm9_resolve_code_pointers).  The word's own content says
@@ -387,6 +407,7 @@ static u32 scan_code_pointers(const BwDataImage *img)
                 word = (u32)(uintptr_t)fn;
                 memcpy(w, &word, 4);
                 remember_code_word(w, word, &img->funcs[f]);
+                done_add(a);
                 n++;
             }
         }
@@ -465,11 +486,84 @@ static u32 scan_data_pointers(const BwDataImage *img)
                 }
                 word = (u32)(uintptr_t)p;
                 memcpy(w, &word, 4);
+                done_add(a);
                 n++;
             }
         }
     }
     return n;
+}
+
+/*
+ * The image is the DS's, little-endian, and the matched code reads it with
+ * native loads; on a big-endian host the 16- and 32-bit runs the metadata
+ * types (BwDataImage.swaps) are turned into the host's order once the
+ * relocation is done, except the words it wrote host pointers into.  The
+ * bytes are reached the way the game reaches them, so a registered object's
+ * copy is turned too.  Strings, byte arrays and objects of unknown layout
+ * are left as they are.
+ */
+static int done_has(u32 where)
+{
+    u32 lo = 0, hi = g_done_count;
+
+    while (lo < hi) {
+        u32 mid = lo + (hi - lo) / 2u;
+        if (g_done[mid] < where) {
+            lo = mid + 1u;
+        } else {
+            hi = mid;
+        }
+    }
+    return lo < g_done_count && g_done[lo] == where;
+}
+
+static int cmp_u32(const void *a, const void *b)
+{
+    u32 x = *(const u32 *)a, y = *(const u32 *)b;
+
+    return x < y ? -1 : x > y;
+}
+
+static void swap_to_host(const BwDataImage *img)
+{
+#if BW_HOST_BIG_ENDIAN
+    u32 i, a;
+
+    if (img->swaps == NULL) {
+        return;
+    }
+    qsort(g_done, g_done_count, sizeof(u32), cmp_u32);
+    for (i = 0; i < img->swap_count; i++) {
+        const BwDataSwap *s = &img->swaps[i];
+
+        for (a = s->addr; a + s->width <= s->addr + s->size; a += s->width) {
+            u8 *p;
+
+            if (s->width == 4u && done_has(a)) {
+                continue;
+            }
+            p = (u8 *)bw_ds_try_ptr(a);
+            if (p == NULL) {
+                continue;
+            }
+            if (s->width == 4u) {
+                bw_mem_wr32(p, bw_rd32(p));
+            } else if (s->width == 2u) {
+                bw_mem_wr16(p, bw_rd16(p));
+            } else if (s->width == 8u) {
+                u8 t[8];
+                u32 j;
+                for (j = 0; j < 8u; j++) {
+                    t[j] = p[7u - j];
+                }
+                memcpy(p, t, 8);
+            }
+        }
+    }
+#else
+    (void)img;
+#endif
 }
 
 void bw_data_withdraw(const BwDataImage *img)
@@ -590,6 +684,7 @@ int bw_data_relocate(const BwDataImage *img)
     if (img->overlay < 0) {
         g_code_word_count = 0;
     }
+    g_done_count = 0;
     /* First pass: every word must hold what the metadata says. */
     for (i = 0; i < img->reloc_count; i++) {
         const BwDataReloc *r = &img->relocs[i];
@@ -655,6 +750,7 @@ int bw_data_relocate(const BwDataImage *img)
         }
         word = (u32)v;
         memcpy(w, &word, 4);
+        done_add(r->where);
         if (is_code && img->overlay < 0) {
             /* The ARM9's own words are the ones the resolve asks about
              * again (bw_arm9_resolve_code_pointers); an overlay's own words
@@ -664,6 +760,7 @@ int bw_data_relocate(const BwDataImage *img)
     }
     g_scanned = scan_code_pointers(img);
     g_scanned_data = scan_data_pointers(img);
+    swap_to_host(img);
     return BW_DATA_OK;
 }
 

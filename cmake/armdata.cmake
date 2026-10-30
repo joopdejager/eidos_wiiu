@@ -86,7 +86,7 @@ function(eidos_armdata prefix)
                 ${bind_args}
                 --exclusions ${EIDOS_ARMDATA_EXCLUSIONS}
                 --out-c ${out_c} --out-h ${out_h}
-        DEPENDS ${EIDOS_ARMDATA_TOOL}
+        DEPENDS ${EIDOS_ARMDATA_TOOL} ${CMAKE_CURRENT_LIST_DIR}/../tools/armdata_widths.txt
                 ${EIDOS_ARMDATA_EXCLUSIONS}
                 ${A_SOURCES_LIST}
                 ${A_BIND}

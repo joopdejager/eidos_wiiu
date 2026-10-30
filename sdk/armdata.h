@@ -82,6 +82,12 @@ typedef struct BwDataName {
     u32          anchor_addr;  /* ... and its DS address                   */
 } BwDataName;
 
+typedef struct BwDataSwap {
+    u32 addr;                  /* DS address of the run                     */
+    u32 size;                  /* bytes                                     */
+    u32 width;                 /* 2, 4 or 8                                 */
+} BwDataSwap;
+
 typedef struct BwDataRange {
     u32 addr;                  /* DS address                                */
     u32 size;
@@ -156,6 +162,13 @@ typedef struct BwDataImage {
      * (docs/armdata.md, "Code pointers the metadata does not list"). */
     const BwDataRange  *scan;
     u32                 scan_count;
+    /* The 16- and 32-bit runs of the data (layout/data_objects.json's types
+     * and the listed pointer words), which a big-endian host turns into its
+     * own order after the relocation (sdk/armdata.c, swap_to_host): the
+     * image is the DS's, little-endian, and the matched code reads it with
+     * native loads. */
+    const BwDataSwap   *swaps;
+    u32                 swap_count;
 } BwDataImage;
 
 /* tools/armdata.py's output for the ARM9 static module. */
