@@ -694,6 +694,24 @@ def _cast_at(m: str, ls: int, lend: int, ptr_typedefs, ident: bool):
                 a, b = p, close + 1
                 form = "expr"
                 p = pp
+    # `(T *)((bits << 14) + HW_DB_BG_VRAM)`: the token ends the operand,
+    # added to an offset (src/game/arm9/gx_bgcnt.c's G2S_ char and screen
+    # base getters).
+    # Only when the addend before it is one parenthesised group (an integer
+    # computed in place): `(u8 *)(base + 0x06000000)` stays alone, since
+    # `base` may be a host pointer.
+    elif p >= 0 and m[p] == "+" and form != "expr":
+        q = _skip_ws_fwd(m, b)
+        lhs_end = _skip_ws_back(m, p - 1)
+        if q < len(m) and m[q] == ")" and lhs_end >= 0 and m[lhs_end] == ")":
+            open2 = _match_back(m, q)
+            lhs_open = _match_back(m, lhs_end)
+            pp = _skip_ws_back(m, open2 - 1) if open2 > 0 else -1
+            if (pp >= 0 and m[pp] == ")" and lhs_open >= 0
+                    and _skip_ws_fwd(m, open2 + 1) == lhs_open):
+                a, b = open2, q + 1
+                form = "expr"
+                p = pp
     if ident and form == "paren" and _postfix_after(m, b):
         return None, -1, -1, a, b, form
     if p >= 0 and m[p] == ")":
@@ -843,6 +861,7 @@ def analyse(src: str):
         return scope[0](off) or _in_static_init(m, off)
 
     cands, statics = [], []
+    inner_of = {}       # (start, end) of an expr rewrite -> its operand's span
 
     def cast_site(ls, cast, value, inner, via):
         """Record the rewrite (or the constant-initializer residue) of the
@@ -856,6 +875,7 @@ def analyse(src: str):
         type_text = src[open_ + 1:p].strip()
         if form == "expr":
             inner = src[a + 1:b - 1].strip()
+            inner_of[(open_, b)] = (a + 1, b - 1)
         if in_pp:
             form += "-in-" + ("define" if _DEFINE_RE.match(m, pp_start)
                               else "directive")
@@ -960,9 +980,11 @@ def analyse(src: str):
         else:
             mixed.extend(ds_args)
 
-    # 4. Functions in CALLEES: casts of their address parameters.
+    # 4. Functions in CALLEES: casts of their address parameters, under
+    #    either spelling (src/matched's func_ name, src/game's SDK name).
     for name, ent in CALLEES.items():
-        for u in re.finditer(r"\b%s\s*\(" % re.escape(name), m):
+        spelled = "|".join(re.escape(n) for n in (name,) + tuple(ent["aliases"]))
+        for u in re.finditer(r"\b(?:%s)\s*\(" % spelled, m):
             open_ = u.end() - 1
             close = _match_fwd(m, open_)
             if close < 0:
@@ -978,13 +1000,42 @@ def analyse(src: str):
                     if cast[0] == "ptr":
                         cast_site(s, cast, None, prm, "callee %s(%s)" % (name, prm))
 
-    # Keep the outermost of overlapping candidates.
+    # Keep the outermost of overlapping candidates.  An outer address
+    # expression keeps the rewrites inside its operand, spliced into its own
+    # text: `(void *)((REG16(BG1CNT) bits) + HW_DB_BG_VRAM)` reads a register
+    # and makes an address of the sum, and both go through bw_ds_ptr.
     cands.sort(key=lambda s: (s.start, -s.end))
-    rewrites, last_end = [], -1
-    for s in cands:
-        if s.start >= last_end:
-            rewrites.append(s)
-            last_end = s.end
+
+    def outermost(group):
+        kept, last = [], -1
+        for c in group:
+            if c.start >= last:
+                kept.append(c)
+                last = c.end
+        return kept
+
+    def nest(outer):
+        span = inner_of.get((outer.start, outer.end))
+        if span is None:
+            return
+        lo, hi = span
+        inside = outermost([c for c in cands if c is not outer
+                            and lo <= c.start and c.end <= hi])
+        if not inside:
+            return
+        raw, pos, parts = src[lo:hi].strip(), lo, []
+        for c in inside:
+            nest(c)
+            parts.append(src[pos:c.start])
+            parts.append(c.text)
+            pos = c.end
+        parts.append(src[pos:hi])
+        if raw in outer.text:
+            outer.text = outer.text.replace(raw, "".join(parts).strip(), 1)
+
+    rewrites = outermost(cands)
+    for s in rewrites:
+        nest(s)
     taken = sorted([(s.start, s.end) for s in rewrites] +
                    [(s.start, s.end) for s in statics])
 
