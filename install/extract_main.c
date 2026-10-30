@@ -98,6 +98,20 @@ int main(int argc, char **argv)
     }
 #endif
 
+    if (argc == 3 && strcmp(argv[1], "--to-host-order") == 0) {
+        /* A tree extracted elsewhere (aletheia's ndsrom.py, or another
+         * host): its NARCs' framing into this host's order. */
+        char err[512];
+        u32 n = 0;
+
+        if (bw_tree_to_host_order(argv[2], &n, err, sizeof(err)) != 0) {
+            fprintf(stderr, "eidos_extract: %s\n", err);
+            return 1;
+        }
+        printf("eidos_extract: %lu NARC(s) in %s now in this host's byte order%s\n",
+               (unsigned long)n, argv[2], BW_HOST_BIG_ENDIAN ? "" : " (little-endian: none needed)");
+        return 0;
+    }
     for (; a < argc && strncmp(argv[a], "--", 2) == 0; a++) {
         if (strcmp(argv[a], "--any") == 0) {
             any = 1;
@@ -109,7 +123,8 @@ int main(int argc, char **argv)
         }
     }
     if (argc - a < 1 || argc - a > 2) {
-        fprintf(stderr, "usage: eidos_extract [--any] [--replace] <rom.nds> [out_dir]\n");
+        fprintf(stderr, "usage: eidos_extract [--any] [--replace] <rom.nds> [out_dir]\n"
+                        "       eidos_extract --to-host-order <extract_dir>\n");
         return 2;
     }
 

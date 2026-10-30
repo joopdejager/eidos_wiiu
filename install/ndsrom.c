@@ -1415,6 +1415,11 @@ int bw_rom_extract(const char *rom_path, const char *out_dir,
     }
     res.bytes = done;
 
+    /* --- a big-endian host: the NARCs' framing in its order ----------- */
+    if (bw_tree_to_host_order(staging, NULL, err, err_len) != 0) {
+        goto done;
+    }
+
     /* --- eidos_manifest.json, last: its presence means complete ------ */
     {
         char full[PATH_MAX_LEN];

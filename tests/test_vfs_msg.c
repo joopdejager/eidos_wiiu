@@ -322,19 +322,19 @@ static u8 *read_file(const char *path, u32 *size)
 /* Locate member `idx` of a NARC image; returns 0 on success. */
 static int narc_member(const u8 *n, u32 size, u32 idx, const u8 **p, u32 *len)
 {
-    u32 off = rd16(n + 12);
+    u32 off = bw_dr_rd16(n + 12);
     const u8 *fat = NULL;
     u32 count = 0;
 
     while (off + 8 <= size) {
-        u32 sz = rd32(n + off + 4);
+        u32 sz = bw_dr_rd32(n + off + 4);
 
         if (memcmp(n + off, "BTAF", 4) == 0) {
             fat = n + off;
-            count = rd16(n + off + 8);
+            count = bw_dr_rd16(n + off + 8);
         } else if (memcmp(n + off, "GMIF", 4) == 0 && fat != NULL && idx < count) {
-            u32 s = rd32(fat + 12 + 8 * idx);
-            u32 e = rd32(fat + 16 + 8 * idx);
+            u32 s = bw_dr_rd32(fat + 12 + 8 * idx);
+            u32 e = bw_dr_rd32(fat + 16 + 8 * idx);
 
             *p = n + off + 8 + s;
             *len = e - s;

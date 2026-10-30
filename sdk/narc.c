@@ -184,7 +184,7 @@ int bw_arc_open(BwArcFile *arc, const char *rel_path)
         return -1;
     }
 
-    pos = bw_rd16(hdr + 12);          /* headerSize, 0x10 in every file */
+    pos = bw_dr_rd16(hdr + 12);          /* headerSize, 0x10 in every file */
     while (pos + 8 <= total) {
         u8 chunk[12];
         u32 magic;
@@ -194,13 +194,13 @@ int bw_arc_open(BwArcFile *arc, const char *rel_path)
             break;
         }
         magic = bw_rd32(chunk);
-        size = bw_rd32(chunk + 4);
+        size = bw_dr_rd32(chunk + 4);
         if (size < 8 || size > total - pos) {
             break;
         }
         if (magic == BTAF_MAGIC) {
             arc->fatOffset = (u16)pos;
-            arc->count = bw_rd16(chunk + 8);
+            arc->count = bw_dr_rd16(chunk + 8);
             have_fat = 1;
         } else if (magic == GMIF_MAGIC) {
             arc->imageBase = pos;
@@ -234,8 +234,8 @@ static int member_extent(BwArcFile *arc, u32 member, u32 *start, u32 *end)
     if (read_at(arc->file, (u32)arc->fatOffset + 0x0C + member * 8, fat, 8) != 0) {
         return -1;
     }
-    *start = bw_rd32(fat);
-    *end = bw_rd32(fat + 4);
+    *start = bw_dr_rd32(fat);
+    *end = bw_dr_rd32(fat + 4);
     if (*end < *start) {
         return -1;
     }

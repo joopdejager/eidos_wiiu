@@ -51,18 +51,16 @@
 #define NARC_ALIGN       4u
 #define NARC_PAD         0xFFu
 
+/* The merged archive's numbers, in the data root's order (sdk/types.h,
+ * bw_dr_wr16): the same order as the archives it stands in for. */
 static void put16(u8 *p, u32 v)
 {
-    p[0] = (u8)v;
-    p[1] = (u8)(v >> 8);
+    bw_dr_wr16(p, (u16)v);
 }
 
 static void put32(u8 *p, u32 v)
 {
-    p[0] = (u8)v;
-    p[1] = (u8)(v >> 8);
-    p[2] = (u8)(v >> 16);
-    p[3] = (u8)(v >> 24);
+    bw_dr_wr32(p, v);
 }
 
 /* ------------------------------------------------------------------ */
@@ -97,7 +95,7 @@ int bw_narc_pack(const u8 *const *data, const u32 *sizes, u32 count,
         btnf_size = sizeof(MINIMAL_BTNF);
     }
     if (btnf_size < 8 || (btnf_size % NARC_ALIGN) != 0 ||
-        bw_rd32(btnf) != BTNF_MAGIC || bw_rd32(btnf + 4) != btnf_size) {
+        bw_rd32(btnf) != BTNF_MAGIC || bw_dr_rd32(btnf + 4) != btnf_size) {
         return -1;
     }
     for (i = 0; i < count; i++) {
@@ -116,7 +114,7 @@ int bw_narc_pack(const u8 *const *data, const u32 *sizes, u32 count,
         return -1;
     }
 
-    put32(img + 0x00, NARC_MAGIC);
+    bw_wr32(img + 0x00, NARC_MAGIC);       /* tags stay bytes          */
     put16(img + 0x04, 0xFFFEu);           /* byte order mark          */
     put16(img + 0x06, 0x0100u);           /* version                  */
     put32(img + 0x08, (u32)total);
@@ -124,7 +122,7 @@ int bw_narc_pack(const u8 *const *data, const u32 *sizes, u32 count,
     put16(img + 0x0E, 3);                 /* chunk count              */
 
     at = NARC_HEADER_SIZE;
-    put32(img + at + 0, BTAF_MAGIC);
+    bw_wr32(img + at + 0, BTAF_MAGIC);
     put32(img + at + 4, btaf_size);
     put16(img + at + 8, count);
     put16(img + at + 10, 0);
@@ -139,7 +137,7 @@ int bw_narc_pack(const u8 *const *data, const u32 *sizes, u32 count,
     memcpy(img + at, btnf, btnf_size);
     at += btnf_size;
 
-    put32(img + at + 0, GMIF_MAGIC);
+    bw_wr32(img + at + 0, GMIF_MAGIC);
     put32(img + at + 4, (u32)(8u + gmif_data));
     at += 8;
     for (i = 0; i < count; i++) {
@@ -185,17 +183,17 @@ static int parse_narc(const u8 *img, u32 size, Narc *n)
     }
     n->img = img;
     n->size = size;
-    pos = bw_rd16(img + 12);
+    pos = bw_dr_rd16(img + 12);
     while (pos <= size && size - pos >= 8) {
         u32 magic = bw_rd32(img + pos);
-        u32 csize = bw_rd32(img + pos + 4);
+        u32 csize = bw_dr_rd32(img + pos + 4);
 
         if (csize < 8 || csize > size - pos) {
             break;
         }
         if (magic == BTAF_MAGIC && csize >= 12) {
             n->fat = pos;
-            n->count = bw_rd16(img + pos + 8);
+            n->count = bw_dr_rd16(img + pos + 8);
             if ((u64)12 + (u64)8 * n->count > csize) {
                 return -1;
             }
@@ -214,8 +212,8 @@ static int parse_narc(const u8 *img, u32 size, Narc *n)
         return -1;
     }
     for (i = 0; i < n->count; i++) {
-        u32 start = bw_rd32(img + n->fat + 12 + i * 8);
-        u32 end = bw_rd32(img + n->fat + 16 + i * 8);
+        u32 start = bw_dr_rd32(img + n->fat + 12 + i * 8);
+        u32 end = bw_dr_rd32(img + n->fat + 16 + i * 8);
 
         if (end < start || end > n->gmif_size - 8) {
             return -1;
@@ -770,8 +768,8 @@ int bw_vfs_build_merged(const char *rel, u8 **out, u32 *out_size)
         goto done;
     }
     for (i = 0; i < narc.count; i++) {
-        u32 start = bw_rd32(base + narc.fat + 12 + i * 8);
-        u32 end = bw_rd32(base + narc.fat + 16 + i * 8);
+        u32 start = bw_dr_rd32(base + narc.fat + 12 + i * 8);
+        u32 end = bw_dr_rd32(base + narc.fat + 16 + i * 8);
 
         data[i] = base + narc.gmif + 8 + start;
         sizes[i] = end - start;

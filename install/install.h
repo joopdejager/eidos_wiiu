@@ -252,6 +252,25 @@ int bw_rom_extract(const char *rom_path, const char *out_dir,
 void bw_fnt_sanitize(const u8 *raw, u32 len, char *out, size_t out_size);
 
 /* ------------------------------------------------------------------ */
+/* The host's byte order (install/byteorder.c)                         */
+/* ------------------------------------------------------------------ */
+
+/* Beside data/: present, and holding BW_BYTE_ORDER_BIG, when the tree's
+ * NARC framing is in a big-endian host's order (sdk/vfs.c checks it). */
+#define BW_BYTE_ORDER_FILE "byte_order.txt"
+#define BW_BYTE_ORDER_BIG  "big-endian"
+
+/* One NARC's framing (header, BTAF, BTNF) from little-endian into the
+ * host's order, in place: 1 done, 0 not a NARC, -1 malformed. */
+int bw_narc_to_host(u8 *p, u32 n);
+
+/* Every NARC under extract_dir/data into the host's order and the marker
+ * written, on a big-endian host; nothing on a little-endian one.  Refuses a
+ * tree that already has the marker.  0 on success, -1 with `err` filled. */
+int bw_tree_to_host_order(const char *extract_dir, u32 *converted,
+                          char *err, size_t err_len);
+
+/* ------------------------------------------------------------------ */
 /* Files, with UTF-8 paths everywhere (install/fsutil.c)               */
 /* ------------------------------------------------------------------ */
 

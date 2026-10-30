@@ -1525,6 +1525,7 @@ add_library(eidos_install STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/install/blz.c
     ${CMAKE_CURRENT_SOURCE_DIR}/install/ndsrom.c
     ${CMAKE_CURRENT_SOURCE_DIR}/install/fsutil.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/install/byteorder.c
 )
 target_include_directories(eidos_install PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/install

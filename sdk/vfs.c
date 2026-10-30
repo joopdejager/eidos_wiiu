@@ -74,6 +74,42 @@ const char *bw_data_root(void)
     return g_data_root;
 }
 
+/*
+ * Whether the data root's NARC framing is in this host's order: always on a
+ * little-endian host; on a big-endian one only when the extractor turned it
+ * (install/byteorder.c), which leaves "big-endian" in byte_order.txt beside
+ * data/.  The game (eidos_boot) asks before it runs; a tree extracted on a
+ * little-endian host would read every archive's offsets backwards.
+ */
+int bw_data_root_byte_order_ok(void)
+{
+#if BW_HOST_BIG_ENDIAN
+    char path[1024];
+    char line[32] = "";
+    const char *root = bw_data_root();
+    size_t n = strlen(root);
+    FILE *fp;
+
+    while (n > 0 && (root[n - 1] == '/' || root[n - 1] == '\\')) {
+        n--;
+    }
+    while (n > 0 && root[n - 1] != '/' && root[n - 1] != '\\') {
+        n--;                            /* to the parent of data/ */
+    }
+    if ((size_t)snprintf(path, sizeof(path), "%.*sbyte_order.txt", (int)n, root) >= sizeof(path)
+        || (fp = fopen(path, "r")) == NULL) {
+        return 0;
+    }
+    if (fgets(line, sizeof(line), fp) == NULL) {
+        line[0] = '\0';
+    }
+    fclose(fp);
+    return strncmp(line, "big-endian", 10) == 0;
+#else
+    return 1;
+#endif
+}
+
 /* ------------------------------------------------------------------ */
 /* The mod list                                                        */
 /* ------------------------------------------------------------------ */

@@ -450,7 +450,7 @@ static int real_data(const char *root)
     BW_CHECK_EQ("  path -> id", bw_fs_id_of_path("rom:/a/0/0/2", &id), 0);
     BW_CHECK_EQ("  its FAT extent", bw_fs_file_extent(id, &top, &bottom), 0);
     BW_CHECK_EQ("  length is the FAT's", FS_GetFileLength(&f), bottom - top);
-    BW_CHECK_EQ("  the NARC's own size agrees", bw_rd32(hdr + 8), bottom - top);
+    BW_CHECK_EQ("  the NARC's own size agrees", bw_dr_rd32(hdr + 8), bottom - top);
 
     BW_CHECK_EQ("seek 0x40", FS_SeekFile(&f, 0x40, 0), 1);
     BW_CHECK_EQ("read 64", FS_ReadFile(&f, a, 64), 64);

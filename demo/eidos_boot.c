@@ -2573,6 +2573,13 @@ int main(int argc, char **argv)
     }
 
 #if EIDOS_BOOT
+    if (!bw_data_root_byte_order_ok()) {
+        fprintf(stderr, "eidos_boot: the data root %s was extracted for a "
+                "little-endian host; on this big-endian host its NARCs need "
+                "turning first: eidos_extract --to-host-order <its parent>\n",
+                bw_data_root());
+        return 2;
+    }
     return run_boot((u64)frames, window, (unsigned)watchdog);
 #else
     (void)window;

@@ -85,11 +85,10 @@ struct Member {
     u8  seed;
 };
 
-static void put16(u8 *p, u32 v) { p[0] = (u8)v; p[1] = (u8)(v >> 8); }
-static void put32(u8 *p, u32 v)
-{
-    p[0] = (u8)v; p[1] = (u8)(v >> 8); p[2] = (u8)(v >> 16); p[3] = (u8)(v >> 24);
-}
+/* The numbers of the container's framing, as the extractor leaves them in
+ * the data root (sdk/types.h, bw_dr_wr16: the host's order). */
+static void put16(u8 *p, u32 v) { bw_dr_wr16(p, (u16)v); }
+static void put32(u8 *p, u32 v) { bw_dr_wr32(p, v); }
 
 static u8 member_byte(u8 seed, u32 i)
 {

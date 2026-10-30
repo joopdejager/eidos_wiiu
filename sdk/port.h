@@ -29,6 +29,8 @@ extern "C" {
  */
 void        bw_set_data_root(const char *path);
 const char *bw_data_root(void);
+/* 1 if the data root's NARCs are in this host's byte order (sdk/vfs.c). */
+int         bw_data_root_byte_order_ok(void);
 
 /*
  * Mods laid over the data root, in a load order where a later mod wins

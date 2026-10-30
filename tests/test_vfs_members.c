@@ -404,11 +404,11 @@ static int synthetic(void)
 
         BW_REQUIRE("pack", img != NULL);
         printf("bw_narc_pack layout\n");
-        BW_CHECK_EQ("file size field", bw_rd32(img + 8), size);
+        BW_CHECK_EQ("file size field", bw_dr_rd32(img + 8), size);
         BW_CHECK_EQ("BTAF at 0x10", bw_rd32(img + 0x10), 0x46415442);
-        BW_CHECK_EQ("BTAF count", bw_rd16(img + 0x18), 3);
-        BW_CHECK_EQ("member 1 starts aligned", bw_rd32(img + 0x10 + 12 + 8), 16);
-        BW_CHECK_EQ("member 2 starts after padding", bw_rd32(img + 0x10 + 12 + 16), 24);
+        BW_CHECK_EQ("BTAF count", bw_dr_rd16(img + 0x18), 3);
+        BW_CHECK_EQ("member 1 starts aligned", bw_dr_rd32(img + 0x10 + 12 + 8), 16);
+        BW_CHECK_EQ("member 2 starts after padding", bw_dr_rd32(img + 0x10 + 12 + 16), 24);
         BW_CHECK_EQ("padding byte is 0xFF", img[size - 1], 0xFF);
         BW_CHECK_EQ("total", size, 0x10 + 12 + 24 + 16 + 8 + 24);
         free(img);
@@ -557,7 +557,7 @@ static u8 *slurp(const char *path, u32 *size)
 /* Repack a real archive from its own tables; 1 if the bytes come back. */
 static int repacks(const u8 *img, u32 size)
 {
-    u32 pos = bw_rd16(img + 12);
+    u32 pos = bw_dr_rd16(img + 12);
     u32 fat = 0, btnf = 0, btnf_size = 0, gmif = 0;
     u32 count;
     u32 i;
@@ -569,7 +569,7 @@ static int repacks(const u8 *img, u32 size)
 
     while (pos + 8 <= size) {
         u32 magic = bw_rd32(img + pos);
-        u32 cs = bw_rd32(img + pos + 4);
+        u32 cs = bw_dr_rd32(img + pos + 4);
 
         if (cs < 8 || cs > size - pos) {
             return 0;
@@ -582,14 +582,14 @@ static int repacks(const u8 *img, u32 size)
     if (fat == 0 || btnf == 0 || gmif == 0) {
         return 0;
     }
-    count = bw_rd16(img + fat + 8);
+    count = bw_dr_rd16(img + fat + 8);
     data = (const u8 **)calloc(count + 1, sizeof(*data));
     sizes = (u32 *)calloc(count + 1, sizeof(*sizes));
     for (i = 0; i < count; i++) {
-        u32 s = bw_rd32(img + fat + 12 + 8 * i);
+        u32 s = bw_dr_rd32(img + fat + 12 + 8 * i);
 
         data[i] = img + gmif + 8 + s;
-        sizes[i] = bw_rd32(img + fat + 16 + 8 * i) - s;
+        sizes[i] = bw_dr_rd32(img + fat + 16 + 8 * i) - s;
     }
     ok = bw_narc_pack(data, sizes, count, img + btnf, btnf_size, &out, &out_size) == 0 &&
          out_size == size && memcmp(out, img, size) == 0;

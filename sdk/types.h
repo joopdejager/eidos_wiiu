@@ -207,6 +207,19 @@ static inline void bw_mem_wr32(u8 *p, u32 v)
 }
 
 /*
+ * A number in a NARC's framing (header, BTAF, BTNF) in the data root.  The
+ * extractor turns that framing into the host's order on a big-endian host
+ * (install/byteorder.c), because the matched code reads it with native
+ * loads, so the port reads and writes it in the host's order too.  The
+ * four-byte tags stay bytes (bw_rd32 against a FOURCC), and the members'
+ * own formats are still the cartridge's little-endian.
+ */
+#define bw_dr_rd16 bw_mem_rd16
+#define bw_dr_rd32 bw_mem_rd32
+#define bw_dr_wr16 bw_mem_wr16
+#define bw_dr_wr32 bw_mem_wr32
+
+/*
  * A field of one of the game types tools/sso_types.txt lists (the bitfield
  * and union views of hardware and firmware words).  With EIDOS_SSO those
  * types keep the DS byte and bitfield order, so such a field is
