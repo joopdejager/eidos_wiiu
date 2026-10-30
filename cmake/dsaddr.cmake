@@ -32,10 +32,10 @@ set(EIDOS_DSADDR_DIR ${CMAKE_BINARY_DIR}/dsaddr)
 set(EIDOS_DSADDR_FLAGS)
 if(CMAKE_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
     set(EIDOS_DSADDR_FLAGS --width)
-    option(EIDOS_SSO "Store the game's structs in the DS byte and bitfield order" OFF)
+    option(EIDOS_SSO "Store the types in tools/sso_types.txt in the DS byte and bitfield order" OFF)
     if(EIDOS_SSO)
         list(APPEND EIDOS_DSADDR_FLAGS --sso)
-        get_filename_component(EIDOS_SSO_NATIVE "${CMAKE_CURRENT_LIST_DIR}/../tools/sso_native.txt" ABSOLUTE)
+        get_filename_component(EIDOS_SSO_TYPES "${CMAKE_CURRENT_LIST_DIR}/../tools/sso_types.txt" ABSOLUTE)
         add_compile_definitions(EIDOS_SSO=1)
     endif()
 endif()
@@ -90,7 +90,7 @@ function(eidos_dsaddr out_var)
             OUTPUT ${out}
             COMMAND ${Python3_EXECUTABLE} ${EIDOS_DSADDR_TOOL}
                     ${src} -o ${out} --name ${src} ${EIDOS_DSADDR_FLAGS} ${cut_args}
-            DEPENDS ${src} ${EIDOS_DSADDR_TOOL} ${EIDOS_SSO_NATIVE} ${cut_deps}
+            DEPENDS ${src} ${EIDOS_DSADDR_TOOL} ${EIDOS_SSO_TYPES} ${cut_deps}
             COMMENT "dsaddr ${shown}"
             VERBATIM)
         set_source_files_properties(${out} PROPERTIES

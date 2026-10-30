@@ -1,0 +1,24 @@
+# Game types stored in the DS byte and bitfield order under EIDOS_SSO.
+#
+# tools/dsaddr.py --sso wraps each listed struct or union's definition (by
+# tag, or by typedef name for an anonymous one) in
+# #pragma scalar_storage_order little-endian, in every game source and in
+# every header the overlay build copies.  Every other game type keeps the
+# host order, which is what the decompiled code's raw-pointer views of its
+# own structs assume (NNSi_FndGetMBlockRegion reads a block's size as
+# blk[1], written through the struct): storing a punned type in the DS
+# order breaks it.
+#
+# List a type only when the game reads a hardware or firmware word through
+# its bitfields or a union with a raw view, and the port writes the other
+# side in the DS order (types.h, bw_gs_rd16..bw_gs_wr32).  One name per
+# line, then why.
+PXIFifoMessage       PXI_SendWordByFifo: the tag:5/err:1/data:26 bitfields over the FIFO word
+RTCRawDate           the ARM7 stand-in's RTC block at 0x02FFFDE8 (sdk/arm7/rtc.c)
+RTCRawTime           the RTC block at 0x02FFFDEC
+RTCRawStatus2        the RTC block at 0x02FFFDEA
+RTCRawAlarm          the RTC block at 0x02FFFDEC
+OSiNvramOwner        the firmware user settings at 0x02FFFC80 (sdk/firmware.c)
+NvTpPoints           the touch-panel calibration in those settings
+OSiNvramSystemWork   another view of those settings
+OSiOwnerRtc          the RTC offset in those settings

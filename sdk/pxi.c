@@ -383,7 +383,7 @@ void bw_pxi_arm7_publish(void)
     for (tag = 0; tag < BW_PXI_TAGS; tag++)
         if (g_pxi.arm7_cb[tag])
             mask |= 1u << tag;
-    bw_gs_wr32((u8 *)&checker[1], mask);   /* OSSystemWork.pxiHandleChecker */
+    checker[1] = mask;
 }
 
 void bw_pxi_arm7_set_callback(int tag, BwPxiArm7Callback cb)

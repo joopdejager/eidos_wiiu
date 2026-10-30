@@ -207,10 +207,12 @@ static inline void bw_mem_wr32(u8 *p, u32 v)
 }
 
 /*
- * A field the game reads or writes through one of its own structs.  With
- * EIDOS_SSO (sdk/bw_sso.h) the game's structs keep the DS byte order, so
- * such a field is little-endian in memory; otherwise it is in host order
- * like any other game store.
+ * A field of one of the game types tools/sso_types.txt lists (the bitfield
+ * and union views of hardware and firmware words).  With EIDOS_SSO those
+ * types keep the DS byte and bitfield order, so such a field is
+ * little-endian in memory; otherwise it is in host order like any other
+ * game store.  Every other game struct is host order either way: use
+ * bw_mem_rd16..bw_mem_wr32.
  */
 #if defined(EIDOS_SSO)
 #define bw_gs_rd16 bw_rd16
