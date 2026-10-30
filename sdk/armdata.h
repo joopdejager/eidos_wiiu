@@ -223,6 +223,10 @@ void bw_data_withdraw(const BwDataImage *img);
 /* How many unlisted code pointers the last bw_data_relocate found by its
  * scan (BwDataImage.scan) and rewrote. */
 u32 bw_data_scanned(void);
+/* How many unlisted data pointers it rewrote: on movable host blocks only,
+ * where a DS address is not the host address (docs/armdata.md, "Data
+ * pointers the metadata does not list"). */
+u32 bw_data_scanned_data(void);
 const char *bw_data_error(void);
 
 /*

@@ -57,6 +57,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "port.h"
@@ -76,6 +77,7 @@ static char               g_error[256];
 static u8                *g_flat[MAX_RANGES];
 static const BwDataImage *g_flat_img;
 static u32                g_scanned;
+static u32                g_scanned_data;
 
 /*
  * The code words the port rewrote, so a hook installed later can be put in
@@ -392,6 +394,84 @@ static u32 scan_code_pointers(const BwDataImage *img)
     return n;
 }
 
+/*
+ * Data pointers the metadata does not list (docs/armdata.md): a word in the
+ * scanned ranges whose value lies in the static module's own data, from the
+ * first scanned byte to the end of the last data or .bss object the build
+ * names, is a pointer into it (the save block table at 0x0209DA28, which
+ * _MainSaveDesc points at and no matched file names), and is rewritten to
+ * where that byte lives on the host.  Identity-mapped, a DS address is the
+ * host address and nothing needs rewriting, so the scan runs on movable host
+ * blocks only (the only mode a host without the DS's addresses has).
+ */
+static u32 scan_data_pointers(const BwDataImage *img)
+{
+    u32 lo_t = 0xFFFFFFFFu, hi_t = 0, n = 0;
+    u32 i, s, k;
+
+    if (bw_ds_identity() || img->scan == NULL || img->overlay >= 0) {
+        return 0;
+    }
+    for (i = 0; i < img->name_count; i++) {
+        const BwDataName *nm = &img->names[i];
+        u32 end;
+
+        if (nm->bind == BW_DATA_BIND_CONST
+            || (nm->section != BW_DATA_SEC_DATA && nm->section != BW_DATA_SEC_BSS)
+            || nm->addr >> 24 != BW_DS_MAIN_BASE >> 24) {
+            continue;
+        }
+        end = nm->addr + (nm->size != 0u ? nm->size : 4u);
+        if (end > hi_t) {
+            hi_t = end;
+        }
+    }
+    for (s = 0; s < img->scan_count; s++) {
+        if (img->scan[s].addr >> 24 == BW_DS_MAIN_BASE >> 24 && img->scan[s].addr < lo_t) {
+            lo_t = img->scan[s].addr;
+        }
+    }
+    if (lo_t >= hi_t) {
+        return 0;
+    }
+    for (s = 0; s < img->scan_count; s++) {
+        const BwDataRange *sr = &img->scan[s];
+        for (k = 0; k < img->range_count; k++) {
+            const BwDataRange *r = &img->ranges[k];
+            u32 lo, hi, a;
+
+            if (g_flat[k] == NULL) {
+                continue;
+            }
+            lo = sr->addr > r->addr ? sr->addr : r->addr;
+            hi = sr->addr + sr->size < r->addr + r->size ? sr->addr + sr->size
+                                                         : r->addr + r->size;
+            for (a = (lo + 3u) & ~3u; a + 4u <= hi; a += 4u) {
+                u8 *w = g_flat[k] + (a - r->addr);
+                u32 value = bw_rd32(w);
+                void *p;
+                u32 word;
+
+                if (value < lo_t || value >= hi_t || listed(img, a)) {
+                    continue;
+                }
+                p = bw_ds_try_ptr(value);
+                if (p == NULL) {
+                    continue;
+                }
+                if (getenv("EIDOS_DATA_SCAN_LOG") != NULL) {
+                    fprintf(stderr, "data scan: 0x%08lX holds 0x%08lX\n",
+                            (unsigned long)a, (unsigned long)value);
+                }
+                word = (u32)(uintptr_t)p;
+                memcpy(w, &word, 4);
+                n++;
+            }
+        }
+    }
+    return n;
+}
+
 void bw_data_withdraw(const BwDataImage *img)
 {
     u32 i;
@@ -583,12 +663,18 @@ int bw_data_relocate(const BwDataImage *img)
         }
     }
     g_scanned = scan_code_pointers(img);
+    g_scanned_data = scan_data_pointers(img);
     return BW_DATA_OK;
 }
 
 u32 bw_data_scanned(void)
 {
     return g_scanned;
+}
+
+u32 bw_data_scanned_data(void)
+{
+    return g_scanned_data;
 }
 void bw_data_trap(u32 addr)
 {

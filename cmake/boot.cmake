@@ -849,6 +849,23 @@ add_test(NAME test_boot_run
             -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/boot_run.cmake)
 set_tests_properties(test_boot_run PROPERTIES
     SKIP_REGULAR_EXPRESSION "SKIPPED:" TIMEOUT 900)
+# The same run on movable host blocks (BW_DS_IDENTITY=0), the only mode a
+# host without the DS's addresses has (the Wii U, LP64 macOS and iOS): every
+# DS address the game holds has to reach bw_ds_ptr, which an identity-mapped
+# run never shows (docs/armdata.md, "Data pointers the metadata does not
+# list").  At 8-byte pointers test_boot_run already runs movable.
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    add_test(NAME test_boot_run_movable
+        COMMAND ${CMAKE_COMMAND} -DBOOT=$<TARGET_FILE:eidos_boot>
+                -DDATA=${BW_DATA_ROOT_ABS} -DFRAMES=${_boot_frames} -DWATCHDOG=60
+                -DMIN_FRAMES=${_boot_min_frames} "-DPRESS=${_boot_press}"
+                "-DRESIDENT=${_boot_resident}"
+                -DLP64=0 "-DKNOWN_STOP=${_boot_known_stop}"
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/boot_run.cmake)
+    set_tests_properties(test_boot_run_movable PROPERTIES
+        SKIP_REGULAR_EXPRESSION "SKIPPED:" TIMEOUT 900
+        ENVIRONMENT "BW_DS_IDENTITY=0")
+endif()
 # The same run with --window, through SDL's dummy video and audio drivers:
 # the window, its pump and the audio queue live on the frame thread, and a
 # run that stalls there (it froze a real window once) fails on the

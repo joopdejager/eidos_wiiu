@@ -121,6 +121,28 @@ not scanned at all. The generator writes the list only with `--code-scan`
 (`eidos_armdata(... CODE_SCAN)`), which the boot passes: a program that
 links every function its sources define.
 
+**Data pointers the metadata does not list.** Identity-mapped, a data
+pointer the metadata misses still works, because the DS address is the host
+address. On movable host blocks (`BW_DS_IDENTITY=0`, and every host that
+cannot reserve 0x02000000: LP64 macOS and iOS, the Wii U, whose loader puts
+the program's code there) it does not: `_MainSaveDesc` at 0x0209D938 holds
+the save block table's address 0x0209DA28, which no matched file names and
+no metadata lists, and `SAVEDATA_BuildLayout` read through it at frame 0.
+So on movable blocks only, after the code scan, `bw_data_relocate` also
+rewrites every other word of the scanned ranges whose value lies in the
+static module's own data, from the first scanned byte to the end of the last
+data or `.bss` object the build names, to `bw_ds_ptr` of that value
+(`scan_data_pointers`; `bw_data_scanned_data()` counts them and `eidos_boot`
+prints the count; `EIDOS_DATA_SCAN_LOG` lists each word). The range is
+narrow (0x0209D86C up to the end of `.bss`), and a word inside it that is a
+number rather than an address would be a coincidence of the same order the
+code scan accepts. Port code that takes such a word as a DS address has to
+accept the relocated host address too: the archive name table's entries are
+the one case so far (`sdk/fs.c`, `CRYPTOi__BN_lshift1`, maps it back with
+`bw_ds_addr_of`). On the ARM9 image of the pin the scan rewrites 273 words,
+and the boot runs to the title menu with every screen the same, pixel for
+pixel, as the identity-mapped run.
+
 **A code pointer and a mod's hook.** A word that holds the address of a
 function is called through, so it does not pass a call site and the slot the
 build puts there never sees it. The relocation therefore asks the registry

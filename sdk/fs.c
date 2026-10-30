@@ -951,8 +951,8 @@ BOOL FS_CreateFileFromMemory(void *file, void *src, u32 size)
  * the ARM9 address of a string "a/0/0/0" .. "a/2/3/4" (aletheia's
  * docs/ASSETS.md, "the table"), held as a u32 at either pointer width
  * (sdk/game_globals.c, bw_arc_install_table).  So this spelling takes a DS
- * address, finds the string through the ARM9 window, and opens it like
- * FS_OpenFile.  Returns 1 on success and 0 on failure; an address outside
+ * address (or, on movable host blocks, the string's relocated host address),
+ * finds the string through the ARM9 window, and opens it like FS_OpenFile.  Returns 1 on success and 0 on failure; an address outside
  * the image, an empty or unterminated string, or a missing file is 0.
  */
 #define BW_FS_PATH_MAX 256u
@@ -964,6 +964,15 @@ u32 CRYPTOi__BN_lshift1(void *file, u32 path_address)
     u32 i;
 
     FS_InitFile(file);
+    if (bw_arm9_rodata(path_address, 1) == NULL) {
+        /* On movable host blocks the image's pointer words are relocated
+         * (sdk/armdata.c, scan_data_pointers), the table's among them, so
+         * the entry is the string's host address: back to the DS's. */
+        u32 ds = bw_ds_addr_of((const void *)(uintptr_t)path_address);
+        if (ds != 0u) {
+            path_address = ds;
+        }
+    }
     for (i = 0; i < BW_FS_PATH_MAX; i++) {
         s = (const char *)bw_arm9_rodata(path_address + i, 1);
         if (s == NULL) {

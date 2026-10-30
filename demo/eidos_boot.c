@@ -2146,9 +2146,13 @@ static int boot_run_start(EidosFrameHooks *hooks, int own_thread)
      * the 3D layer the screens are composed with (engine/g3d/hw3d.h). */
     g3d_hw_reset();
     printf("eidos_boot: DS address space %s; %lu code pointers the metadata "
-           "does not list relocated by the scan\n",
+           "does not list relocated by the scan",
            bw_ds_identity() ? "identity-mapped" : "on movable host blocks",
            (unsigned long)bw_data_scanned());
+    if (!bw_ds_identity()) {
+        printf(", %lu data pointers", (unsigned long)bw_data_scanned_data());
+    }
+    printf("\n");
     fflush(stdout);
     bw_boot_link_init();
     /* The mod layer's own seams: what a restart means to the port, and what
