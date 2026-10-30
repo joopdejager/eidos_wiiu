@@ -206,4 +206,22 @@ static inline void bw_mem_wr32(u8 *p, u32 v)
 #endif
 }
 
+/*
+ * A field the game reads or writes through one of its own structs.  With
+ * EIDOS_SSO (sdk/bw_sso.h) the game's structs keep the DS byte order, so
+ * such a field is little-endian in memory; otherwise it is in host order
+ * like any other game store.
+ */
+#if defined(EIDOS_SSO)
+#define bw_gs_rd16 bw_rd16
+#define bw_gs_rd32 bw_rd32
+#define bw_gs_wr16 bw_wr16
+#define bw_gs_wr32 bw_wr32
+#else
+#define bw_gs_rd16 bw_mem_rd16
+#define bw_gs_rd32 bw_mem_rd32
+#define bw_gs_wr16 bw_mem_wr16
+#define bw_gs_wr32 bw_mem_wr32
+#endif
+
 #endif /* BW_PORT_TYPES_H */

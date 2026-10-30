@@ -94,6 +94,10 @@ PRELUDE_DECL = "void *bw_ds_ptr(unsigned int);"
 # needs it for the word-swizzled register file.
 WIDTH = False
 PRELUDE_DECL_WIDTH = "void *bw_ds_ptr_w(unsigned int, unsigned int);"
+# --sso: the game's structs and unions in the DS byte and bitfield order
+# (sdk/bw_sso.h), for a big-endian target.
+SSO = False
+PRELUDE_SSO = '#include "bw_sso.h"'
 
 QUALIFIERS = {"const", "volatile", "restrict", "__restrict", "__volatile__"}
 # Identifiers that cannot end a type name; a parenthesised group made of
@@ -1012,7 +1016,8 @@ def rewrite(src: str, name: str):
     shown = name.replace("\\", "/").replace('"', '\\"')
     prelude = ("/* tools/dsaddr.py: fixed DS addresses go through bw_ds_ptr */\n"
                "%s\n#line 1 \"%s\"\n"
-               % (PRELUDE_DECL + ("\n" + PRELUDE_DECL_WIDTH if WIDTH else ""), shown))
+               % ((PRELUDE_SSO + "\n" if SSO else "") + PRELUDE_DECL
+                  + ("\n" + PRELUDE_DECL_WIDTH if WIDTH else ""), shown))
     return prelude + body, rewrites, residue
 
 
@@ -1597,6 +1602,8 @@ def main(argv=None) -> int:
     ap.add_argument("inputs", nargs="*")
     ap.add_argument("-o", "--output")
     ap.add_argument("--name", help="path the #line directive names (default: the input)")
+    ap.add_argument("--sso", action="store_true",
+                    help="store the game's structs in the DS order (big-endian targets)")
     ap.add_argument("--width", action="store_true",
                     help="pass each access's width to bw_ds_ptr_w (big-endian targets)")
     ap.add_argument("--survey", metavar="DIR")
@@ -1618,8 +1625,9 @@ def main(argv=None) -> int:
     ap.add_argument("--check", action="store_true",
                     help="exit 1 if any input would be rewritten")
     a = ap.parse_args(argv)
-    global WIDTH
+    global WIDTH, SSO
     WIDTH = a.width
+    SSO = a.sso
     if a.survey:
         return survey(a.survey, a.json, a.show)
     if a.report:

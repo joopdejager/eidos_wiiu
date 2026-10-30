@@ -570,7 +570,11 @@ void bw_firmware_apply(void)
     const BwFirmwareSettings *s = bw_firmware_settings();
     u8 info[BW_FW_USER_INFO_SIZE];
 
+#if defined(EIDOS_SSO)
+    user_info_as(s, info, 0);          /* OSOwnerInfo is a game struct */
+#else
     user_info_as(s, info, 1);
+#endif
     memcpy(bw_ds_ptr(BW_FW_USER_INFO_ADDR), info, sizeof info);
     memcpy(bw_ds_ptr(BW_FW_MAC_ADDR), s->mac, 6);
     bw_mem_wr16((u8 *)bw_ds_ptr(BW_FW_CHANNELS_ADDR), s->channels);
