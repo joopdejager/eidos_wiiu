@@ -150,4 +150,60 @@ static inline void bw_wr32(u8 *p, u32 v)
     p[3] = (u8)((v >> 24) & 0xFF);
 }
 
+/*
+ * DS memory reads and writes.  The emulated address space (main RAM, the
+ * register file, palette, VRAM, OAM, the shared work areas) holds what the
+ * matched code's own stores leave there, and those are host-order stores
+ * through bw_ds_ptr.  Port code that reads or writes a value the game also
+ * reads or writes uses these, so both sides agree on any host.  On a
+ * little-endian host they are bw_rd16..bw_wr32; on a big-endian host they
+ * are not, and bytes copied in from an extracted file are little-endian
+ * until something converts them.
+ */
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define BW_HOST_BIG_ENDIAN 1
+#else
+#define BW_HOST_BIG_ENDIAN 0
+#endif
+
+static inline u16 bw_mem_rd16(const u8 *p)
+{
+#if BW_HOST_BIG_ENDIAN
+    return (u16)(((u16)p[0] << 8) | (u16)p[1]);
+#else
+    return bw_rd16(p);
+#endif
+}
+
+static inline u32 bw_mem_rd32(const u8 *p)
+{
+#if BW_HOST_BIG_ENDIAN
+    return ((u32)p[0] << 24) | ((u32)p[1] << 16) | ((u32)p[2] << 8) | (u32)p[3];
+#else
+    return bw_rd32(p);
+#endif
+}
+
+static inline void bw_mem_wr16(u8 *p, u16 v)
+{
+#if BW_HOST_BIG_ENDIAN
+    p[0] = (u8)(v >> 8);
+    p[1] = (u8)(v & 0xFF);
+#else
+    bw_wr16(p, v);
+#endif
+}
+
+static inline void bw_mem_wr32(u8 *p, u32 v)
+{
+#if BW_HOST_BIG_ENDIAN
+    p[0] = (u8)(v >> 24);
+    p[1] = (u8)((v >> 16) & 0xFF);
+    p[2] = (u8)((v >> 8) & 0xFF);
+    p[3] = (u8)(v & 0xFF);
+#else
+    bw_wr32(p, v);
+#endif
+}
+
 #endif /* BW_PORT_TYPES_H */

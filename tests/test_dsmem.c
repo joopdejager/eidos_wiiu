@@ -43,7 +43,7 @@ static void vramcnt(int b, u8 v)
         0x04000240, 0x04000241, 0x04000242, 0x04000243, 0x04000244,
         0x04000245, 0x04000246, 0x04000248, 0x04000249
     };
-    *(volatile u8 *)bw_ds_ptr(reg[b]) = v;
+    *(volatile u8 *)bw_ds_ptr_w(reg[b], 1) = v;
 }
 
 static void vram_all_off(void)
@@ -95,8 +95,8 @@ static int test_regions(void)
     BW_CHECK_EQ("oam addr_of", bw_ds_addr_of(q + 6), 0x07000206);
 
     /* I/O */
-    PTR_EQ("io ptr == bw_io", bw_ds_ptr(0x04000208u), bw_io(0x04000208u));
-    *(volatile u16 *)bw_ds_ptr(0x04000208u) = 1;
+    PTR_EQ("io ptr == bw_io", bw_ds_ptr_w(0x04000208u, 1), bw_io(0x04000208u));
+    *(volatile u16 *)bw_ds_ptr_w(0x04000208u, sizeof(*(volatile u16 *)0)) = 1;
     BW_CHECK_EQ("io literal store read16", bw_io_read16(0x04000208u), 1);
     BW_CHECK_EQ("KEYINPUT released", bw_io_read16(0x04000130u), 0x03FF);
     BW_REQUIRE("io ipc fifo backed", bw_ds_try_ptr(0x04100000u) != NULL);
@@ -242,7 +242,7 @@ static int test_hooks(void)
     BW_CHECK_EQ("sync after writes is quiet", g_hook_runs, 3);
 
     /* matched-code stores are seen at sync, once, with old and new */
-    *(volatile u16 *)bw_ds_ptr(0x04000208u) = 1;
+    *(volatile u16 *)bw_ds_ptr_w(0x04000208u, sizeof(*(volatile u16 *)0)) = 1;
     BW_CHECK_EQ("store alone runs nothing", g_hook_runs, 3);
     bw_io_sync();
     BW_CHECK_EQ("sync ran hook", g_hook_runs, 4);
@@ -250,7 +250,7 @@ static int test_hooks(void)
     BW_CHECK_EQ("sync hook new", g_hook_new, 1);
     bw_io_sync();
     BW_CHECK_EQ("second sync quiet", g_hook_runs, 4);
-    *(volatile u16 *)bw_ds_ptr(0x0400020Au) = 7;   /* unhooked neighbour */
+    *(volatile u16 *)bw_ds_ptr_w(0x0400020Au, sizeof(*(volatile u16 *)0)) = 7;   /* unhooked neighbour */
     bw_io_sync();
     BW_CHECK_EQ("unhooked change quiet", g_hook_runs, 4);
 
@@ -434,7 +434,7 @@ static int test_reset(void)
     *(u8 *)bw_ds_ptr(0x03000000u) = 1;
     *(u8 *)bw_ds_ptr(0x05000000u) = 1;
     *(u8 *)bw_ds_ptr(0x07000000u) = 1;
-    *(volatile u8 *)bw_ds_ptr(0x04000240u) = 0x80;
+    *(volatile u8 *)bw_ds_ptr_w(0x04000240u, sizeof(*(volatile u8 *)0)) = 0x80;
     *(u8 *)bw_ds_ptr(0x06800000u) = 1;
     bw_ds_reset();
     BW_CHECK_EQ("reset main", *(u8 *)bw_ds_ptr(0x02200000u), 0);

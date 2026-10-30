@@ -64,7 +64,7 @@ static void w32(u32 addr, u32 v)
 
 static void w16(u32 addr, u16 v)
 {
-    *(volatile u16 *)bw_ds_ptr(addr) = v;
+    *(volatile u16 *)bw_ds_ptr_w(addr, sizeof(volatile u16)) = v;
 }
 
 static u32 r32(u32 addr)
@@ -130,8 +130,11 @@ static u32 v10(s32 x, s32 y, s32 z)
            (((u32)z & 0x3FFu) << 20);
 }
 
-/* Packed: four commands per command word, their parameters after it. */
-static u32 pack(u8 *out, const Cmd *cmds, u32 n)
+/* Packed: four commands per command word, their parameters after it.
+ * `ram` 0 lays the words out as a file does (little-endian, what
+ * g3d_gx_run reads); 1 as the game's own stores leave them in DS memory
+ * (bw_mem_wr32, what the FIFO path reads). */
+static u32 pack_as(u8 *out, const Cmd *cmds, u32 n, int ram)
 {
     u32 len = 0, i, k;
 
@@ -140,17 +143,22 @@ static u32 pack(u8 *out, const Cmd *cmds, u32 n)
         for (k = 0; k < 4u && i + k < n; k++) {
             word |= cmds[i + k].op << (k * 8u);
         }
-        bw_wr32(out + len, word);
+        (ram ? bw_mem_wr32 : bw_wr32)(out + len, word);
         len += 4u;
         for (k = 0; k < 4u && i + k < n; k++) {
             u32 j;
             for (j = 0; j < cmds[i + k].n; j++) {
-                bw_wr32(out + len, cmds[i + k].p[j]);
+                (ram ? bw_mem_wr32 : bw_wr32)(out + len, cmds[i + k].p[j]);
                 len += 4u;
             }
         }
     }
     return len;
+}
+
+static u32 pack(u8 *out, const Cmd *cmds, u32 n)
+{
+    return pack_as(out, cmds, n, 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -180,7 +188,7 @@ static void make_textures(void)
     for (i = 0; i < sizeof(g_pal) / 2u; i++) {
         u16 c = (u16)((i * 2u) & 31u) | (u16)(((31u - i) & 31u) << 5) |
                 (u16)(((i * 5u) & 31u) << 10);
-        bw_wr16(&g_pal[i * 2u], c);
+        bw_mem_wr16(&g_pal[i * 2u], c);
     }
     /* repeat S and T, 8x8, format, address in 8-byte units */
     g_teximage0 = (TEX0_ADDR >> 3) | (3u << 16) | (3u << 26);
@@ -194,7 +202,7 @@ static void load_vram(void)
     u8 *a, *e;
 
     w16(0x04000240u, 0x83u);      /* VRAMCNT_A: MST 3, slot 0 */
-    *(volatile u8 *)bw_ds_ptr(0x04000244u) = 0x83u;   /* VRAMCNT_E: MST 3 */
+    *(volatile u8 *)bw_ds_ptr_w(0x04000244u, sizeof(*(volatile u8 *)0)) = 0x83u;   /* VRAMCNT_E: MST 3 */
     bw_vram_remap();
     a = bw_vram_bank(BW_VRAM_A, &sz);
     e = bw_vram_bank(BW_VRAM_E, &sz);
@@ -402,14 +410,14 @@ static void test_identity(void)
            (unsigned long)cov, (unsigned long)(G3D_SCREEN_W * G3D_SCREEN_H));
     BW_CHECK_EQ("reference covers something", cov > 4000u, 1);
 
-    len = pack(bytes, g_cmds, g_ncmd);
+    len = pack_as(bytes, g_cmds, g_ncmd, 1);
 
     /* a. packed, one translated store per word, swap through its port */
     boot();
     load_vram();
     hw_setup_frame(0x0009u);
     for (i = 0; i < len; i += 4u) {
-        w32(G3D_HW_GXFIFO, bw_rd32(bytes + i));
+        w32(G3D_HW_GXFIFO, bw_mem_rd32(bytes + i));
     }
     w32(G3D_HW_SWAP_BUFFERS, 0u);
     bw_io_sync();
@@ -450,11 +458,11 @@ static void test_identity(void)
         /* TEXIMAGE_PARAM persists across a swap, as on hardware, and the
          * list's first polygons assume the power-on 0: reset it first. */
         u8 with_swap[16384 + 16];
-        bw_wr32(with_swap, 0x2Au);
-        bw_wr32(with_swap + 4u, 0u);
+        bw_mem_wr32(with_swap, 0x2Au);
+        bw_mem_wr32(with_swap + 4u, 0u);
         memcpy(with_swap + 8u, bytes, len);
-        bw_wr32(with_swap + 8u + len, 0x50u);
-        bw_wr32(with_swap + 12u + len, 0u);
+        bw_mem_wr32(with_swap + 8u + len, 0x50u);
+        bw_mem_wr32(with_swap + 12u + len, 0u);
         MI_SendGXCommandAsync(0, with_swap, len + 16u, count_cb, NULL);
     }
     BW_CHECK_EQ("SendGXCommandAsync: callback ran", g_cb_calls, 1);
@@ -468,7 +476,7 @@ static void test_identity(void)
     load_vram();
     hw_setup_frame(0x0008u);
     for (i = 0; i < len; i += 4u) {
-        w32(G3D_HW_GXFIFO, bw_rd32(bytes + i));
+        w32(G3D_HW_GXFIFO, bw_mem_rd32(bytes + i));
     }
     w32(G3D_HW_SWAP_BUFFERS, 0u);
     g3d_hw_flush();
@@ -711,9 +719,9 @@ static void test_status(void)
     w32(0x04000454u, 0u);
     w32(0x040005C8u, v10(256, -256, 511));
     g3d_hw_flush();
-    BW_CHECK_EQ("VEC_RESULT x", *(volatile u16 *)bw_ds_ptr(G3D_HW_VEC_RESULT), 0x0800);
-    BW_CHECK_EQ("VEC_RESULT y", *(volatile u16 *)bw_ds_ptr(G3D_HW_VEC_RESULT + 2u), 0xF800);
-    BW_CHECK_EQ("VEC_RESULT z", *(volatile u16 *)bw_ds_ptr(G3D_HW_VEC_RESULT + 4u), 0x0FF8);
+    BW_CHECK_EQ("VEC_RESULT x", *(volatile u16 *)bw_ds_ptr_w(G3D_HW_VEC_RESULT, sizeof(*(volatile u16 *)0)), 0x0800);
+    BW_CHECK_EQ("VEC_RESULT y", *(volatile u16 *)bw_ds_ptr_w(G3D_HW_VEC_RESULT + 2u, sizeof(*(volatile u16 *)0)), 0xF800);
+    BW_CHECK_EQ("VEC_RESULT z", *(volatile u16 *)bw_ds_ptr_w(G3D_HW_VEC_RESULT + 4u, sizeof(*(volatile u16 *)0)), 0x0FF8);
 
     /* BOX_TEST with identity matrices: inside, outside, straddling. */
     w32(0x040005C0u, v16(-FX32_ONE / 2, -FX32_ONE / 2));
@@ -1104,10 +1112,10 @@ static void test_rear(void)
     bank_c = bw_vram_bank(BW_VRAM_C, NULL);
     bank_d = bw_vram_bank(BW_VRAM_D, NULL);
     for (i = 0; i < 256u * 256u; i++) {
-        bw_wr16(bank_d + i * 2u, 0x7FFFu);       /* far everywhere */
+        bw_mem_wr16(bank_d + i * 2u, 0x7FFFu);       /* far everywhere */
     }
-    bw_wr16(bank_c + (6u * 256u + 5u) * 2u, (u16)(0x8000u | (31u << 10)));
-    bw_wr16(bank_d + (6u * 256u + 5u) * 2u, 0x7FFFu);
+    bw_mem_wr16(bank_c + (6u * 256u + 5u) * 2u, (u16)(0x8000u | (31u << 10)));
+    bw_mem_wr16(bank_d + (6u * 256u + 5u) * 2u, 0x7FFFu);
     w16(G3D_HW_CLRIMAGE_OFS, (u16)(1u | (2u << 8)));
     w16(G3D_HW_DISP3DCNT, 0x4008u);
     swap(0);
@@ -1115,7 +1123,7 @@ static void test_rear(void)
     BW_CHECK_EQ("rear plane: its alpha bit", px(4, 4)[3], 255);
     BW_CHECK_EQ("rear plane: an empty pixel is transparent", px(5, 4)[3], 0);
     /* Its depth: an image depth of 0 hides a polygon behind it. */
-    bw_wr16(bank_d + (6u * 256u + 5u) * 2u, 0u);
+    bw_mem_wr16(bank_d + (6u * 256u + 5u) * 2u, 0u);
     quad_at(0x001F00C0u, 31u << 5, -FX32_ONE, -FX32_ONE, FX32_ONE, FX32_ONE,
             0, NULL);
     swap(0);

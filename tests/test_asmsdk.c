@@ -254,10 +254,8 @@ static void test_mii_units(void)
     /* MIi_CpuClear16: halfwords while offset < size, size rounded up. */
     memset(b, 0xEE, sizeof words);
     MIi_CpuClear16(0x1234, b, 3);
-    BW_CHECK_EQ("Clear16 size 3 [0]", b[0], 0x34);
-    BW_CHECK_EQ("Clear16 size 3 [1]", b[1], 0x12);
-    BW_CHECK_EQ("Clear16 size 3 [2]", b[2], 0x34);
-    BW_CHECK_EQ("Clear16 size 3 [3] (rounded up)", b[3], 0x12);
+    BW_CHECK_EQ("Clear16 size 3 [0]", bw_mem_rd16(b), 0x1234);
+    BW_CHECK_EQ("Clear16 size 3 [2] (rounded up)", bw_mem_rd16(b + 2), 0x1234);
     BW_CHECK_EQ("Clear16 size 3 [4] untouched", b[4], 0xEE);
     memset(b, 0xEE, sizeof words);
     MIi_CpuClear16(0, b, 0);
@@ -268,14 +266,14 @@ static void test_mii_units(void)
     /* MIi_CpuClear32: rounded up to whole words. */
     memset(b, 0xEE, sizeof words);
     MIi_CpuClear32(0xA1B2C3D4u, b, 5);
-    BW_CHECK_EQ("Clear32 size 5 word 0", bw_rd32(b), 0xA1B2C3D4u);
-    BW_CHECK_EQ("Clear32 size 5 word 1 (rounded up)", bw_rd32(b + 4), 0xA1B2C3D4u);
+    BW_CHECK_EQ("Clear32 size 5 word 0", bw_mem_rd32(b), 0xA1B2C3D4u);
+    BW_CHECK_EQ("Clear32 size 5 word 1 (rounded up)", bw_mem_rd32(b + 4), 0xA1B2C3D4u);
     BW_CHECK_EQ("Clear32 size 5 byte 8 untouched", b[8], 0xEE);
     memset(b, 0xEE, sizeof words);
     MIi_CpuClear32(0, b, 0xFFFFFFFCu);
     BW_CHECK_EQ("Clear32 negative size writes nothing", b[0], 0xEE);
     func_02082A7C(0, b, 4);
-    BW_CHECK_EQ("func_02082A7C clears", bw_rd32(b), 0);
+    BW_CHECK_EQ("func_02082A7C clears", bw_mem_rd32(b), 0);
 
     /* MIi_CpuCopy16: forward halfwords, odd size rounded up. */
     for (i = 0; i < sizeof src_words; i++) {
@@ -758,31 +756,31 @@ static void test_cp_context(void)
     for (i = 0; i < 4; i++) {
         *shared32(0x04000290u + 4 * i) = 0x11111111u * (i + 1);
     }
-    *(volatile u16 *)bw_ds_ptr(0x04000280u) = 0x8002;     /* busy + mode 2 */
+    *(volatile u16 *)bw_ds_ptr_w(0x04000280u, sizeof(*(volatile u16 *)0)) = 0x8002;     /* busy + mode 2 */
     *shared32(0x040002B8u) = 0xCAFEF00Du;
     *shared32(0x040002BCu) = 0x01234567u;
-    *(volatile u16 *)bw_ds_ptr(0x040002B0u) = 0x8001;
+    *(volatile u16 *)bw_ds_ptr_w(0x040002B0u, sizeof(*(volatile u16 *)0)) = 0x8001;
     memset(ctx, 0xEE, sizeof ctx);
     CP_SaveContext(ctx);
-    BW_CHECK_EQ("save: DIV_NUMER low", bw_rd32(ctx), 0x11111111u);
-    BW_CHECK_EQ("save: DIV_DENOM high", bw_rd32(ctx + 12), 0x44444444u);
-    BW_CHECK_EQ("save: SQRT_PARAM", bw_rd32(ctx + 0x10), 0xCAFEF00Du);
-    BW_CHECK_EQ("save: SQRT_PARAM high", bw_rd32(ctx + 0x14), 0x01234567u);
-    BW_CHECK_EQ("save: DIVCNT & 3", bw_rd16(ctx + 0x18), 2);
-    BW_CHECK_EQ("save: SQRTCNT & 1", bw_rd16(ctx + 0x1A), 1);
+    BW_CHECK_EQ("save: DIV_NUMER low", bw_mem_rd32(ctx), 0x11111111u);
+    BW_CHECK_EQ("save: DIV_DENOM high", bw_mem_rd32(ctx + 12), 0x44444444u);
+    BW_CHECK_EQ("save: SQRT_PARAM", bw_mem_rd32(ctx + 0x10), 0xCAFEF00Du);
+    BW_CHECK_EQ("save: SQRT_PARAM high", bw_mem_rd32(ctx + 0x14), 0x01234567u);
+    BW_CHECK_EQ("save: DIVCNT & 3", bw_mem_rd16(ctx + 0x18), 2);
+    BW_CHECK_EQ("save: SQRTCNT & 1", bw_mem_rd16(ctx + 0x1A), 1);
 
     for (i = 0; i < 4; i++) {
         *shared32(0x04000290u + 4 * i) = 0;
     }
     *shared32(0x040002B8u) = 0;
     *shared32(0x040002BCu) = 0;
-    *(volatile u16 *)bw_ds_ptr(0x04000280u) = 0;
-    *(volatile u16 *)bw_ds_ptr(0x040002B0u) = 0;
+    *(volatile u16 *)bw_ds_ptr_w(0x04000280u, sizeof(*(volatile u16 *)0)) = 0;
+    *(volatile u16 *)bw_ds_ptr_w(0x040002B0u, sizeof(*(volatile u16 *)0)) = 0;
     CPi_RestoreContext(ctx);
     BW_CHECK_EQ("restore: DIV_NUMER", *shared32(0x04000294u), 0x22222222u);
     BW_CHECK_EQ("restore: SQRT_PARAM", *shared32(0x040002B8u), 0xCAFEF00Du);
-    BW_CHECK_EQ("restore: DIVCNT", *(volatile u16 *)bw_ds_ptr(0x04000280u), 2);
-    BW_CHECK_EQ("restore: SQRTCNT", *(volatile u16 *)bw_ds_ptr(0x040002B0u), 1);
+    BW_CHECK_EQ("restore: DIVCNT", *(volatile u16 *)bw_ds_ptr_w(0x04000280u, sizeof(*(volatile u16 *)0)), 2);
+    BW_CHECK_EQ("restore: SQRTCNT", *(volatile u16 *)bw_ds_ptr_w(0x040002B0u, sizeof(*(volatile u16 *)0)), 1);
     CP_SaveContext(back);
     BW_CHECK_EQ("save after restore is the same context", memcmp(ctx, back, sizeof ctx), 0);
 }

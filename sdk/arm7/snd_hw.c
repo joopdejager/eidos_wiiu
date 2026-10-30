@@ -464,8 +464,7 @@ static void capture_write(Cap *c, s32 v, u32 ticks)
             c->dst[c->pos] = (u8)(s8)(v >> 8);
             c->pos += 1;
         } else {
-            c->dst[c->pos] = (u8)v;
-            c->dst[c->pos + 1] = (u8)((u32)v >> 8);
+            bw_mem_wr16(c->dst + c->pos, (u16)v);
             c->pos += 2;
         }
         if (c->pos >= bytes) {

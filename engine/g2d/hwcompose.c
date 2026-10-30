@@ -280,12 +280,12 @@ typedef struct Engine {
 
 static u16 reg16(const Engine *e, u32 off)
 {
-    return bw_rd16(e->io + off);
+    return (u16)bw_io_file_get(e->io, off, 2);
 }
 
 static u32 reg32(const Engine *e, u32 off)
 {
-    return bw_rd32(e->io + off);
+    return bw_io_file_get(e->io, off, 4);
 }
 
 static void engine_free(Engine *e)
@@ -381,7 +381,7 @@ static int build_text(Engine *e, u32 n, u16 cnt)
     /* At most 8 KB of map from a base inside the window: the guard holds
      * the wrapped continuation. */
     for (i = 0; i < nscr->count; i++) {
-        nscr->entries[i] = bw_rd16(e->bgv + sb + i * 2u);
+        nscr->entries[i] = bw_mem_rd16(e->bgv + sb + i * 2u);
     }
     char_view(e, char_base(e, cnt), (cnt & 0x80u) != 0, &e->ncgr[n]);
 
@@ -468,7 +468,7 @@ static int ras_pixel(const Engine *e, int kind, u32 n, u16 cnt,
         if (v == 0) {
             return 0;
         }
-        *out = bgr555(bw_rd16(ext + ((u32)G2D_SCR_PAL(entry) * 256u + v) * 2u));
+        *out = bgr555(bw_mem_rd16(ext + ((u32)G2D_SCR_PAL(entry) * 256u + v) * 2u));
         return 1;
     } else {
         G2dAffine m;
@@ -496,7 +496,7 @@ static int ras_pixel(const Engine *e, int kind, u32 n, u16 cnt,
         }
         if (kind == RAS_AFFINE_EXT) {
             u32 sb = screen_base(e, cnt);
-            u16 entry = bw_rd16(e->bgv + sb
+            u16 entry = bw_mem_rd16(e->bgv + sb
                                 + (((u32)ty / 8u) * (w / 8u) + (u32)tx / 8u) * 2u);
             u8 tile[64];
             u8 v;
@@ -508,7 +508,7 @@ static int ras_pixel(const Engine *e, int kind, u32 n, u16 cnt,
                 return 0;
             }
             *out = (ext != NULL)
-                ? bgr555(bw_rd16(ext + ((u32)G2D_SCR_PAL(entry) * 256u + v) * 2u))
+                ? bgr555(bw_mem_rd16(ext + ((u32)G2D_SCR_PAL(entry) * 256u + v) * 2u))
                 : e->bg_colors[v];
             return 1;
         } else {
@@ -525,7 +525,7 @@ static int ras_pixel(const Engine *e, int kind, u32 n, u16 cnt,
                 return 1;
             } else {
                 u32 a = (base + at * 2u) % e->bg_size;
-                u16 c = bw_rd16(e->bgv + a);
+                u16 c = bw_mem_rd16(e->bgv + a);
 
                 if ((c & 0x8000u) == 0) {
                     return 0;    /* bit 15 clear: a transparent pixel */
@@ -710,7 +710,7 @@ static void layer_pixel(const Engine *e, u32 n, s32 x, s32 y, u8 *out)
  */
 static int apply_mosaic(Engine *e)
 {
-    u8 m = e->io[REG_MOSAIC];
+    u8 m = bw_io_file_get(e->io, REG_MOSAIC, 1);
     u32 mh = (m & 0xFu) + 1u, mv = ((u32)m >> 4) + 1u;
     u32 n;
 
@@ -853,7 +853,7 @@ static int build_objs(Engine *e)
 
     for (i = 0; i < 128u; i++) {
         const u8 *ent = oam + i * 8u;
-        u16 a0 = bw_rd16(ent), a1 = bw_rd16(ent + 2), a2 = bw_rd16(ent + 4);
+        u16 a0 = bw_mem_rd16(ent), a1 = bw_mem_rd16(ent + 2), a2 = bw_mem_rd16(ent + 4);
         int affine = (a0 & 0x100u) != 0;
         u32 mode = ((u32)a0 >> 10) & 3u;
         u32 shape = (u32)a0 >> 14;
@@ -884,10 +884,10 @@ static int build_objs(Engine *e)
             G2dAffine m;
             int dbl = (a0 & 0x200u) != 0;
 
-            m.pa = (s16)bw_rd16(grp + 6);
-            m.pb = (s16)bw_rd16(grp + 14);
-            m.pc = (s16)bw_rd16(grp + 22);
-            m.pd = (s16)bw_rd16(grp + 30);
+            m.pa = (s16)bw_mem_rd16(grp + 6);
+            m.pb = (s16)bw_mem_rd16(grp + 14);
+            m.pc = (s16)bw_mem_rd16(grp + 22);
+            m.pd = (s16)bw_mem_rd16(grp + 30);
             g2d_obj_affine_size(w, h, dbl, &cw, &ch);
             g2d_obj_affine_render(src, w, h, &m, dbl, canvas);
         } else {
@@ -906,8 +906,8 @@ static int build_objs(Engine *e)
         }
         paint_obj(e, canvas, cw, ch, a1 & 0x1FFu, a0 & 0xFFu,
                   ((u32)a2 >> 10) & 3u, mode, bpp8, ((u32)a2 >> 12) & 0xFu,
-                  (a0 & 0x1000u) ? (e->io[REG_MOSAIC + 1u] & 0xFu) + 1u : 1u,
-                  (a0 & 0x1000u) ? ((u32)e->io[REG_MOSAIC + 1u] >> 4) + 1u : 1u);
+                  (a0 & 0x1000u) ? (bw_io_file_get(e->io, REG_MOSAIC + 1u, 1) & 0xFu) + 1u : 1u,
+                  (a0 & 0x1000u) ? ((u32)bw_io_file_get(e->io, REG_MOSAIC + 1u, 1) >> 4) + 1u : 1u);
     }
     return 0;
 }
@@ -1037,8 +1037,8 @@ static int alloc_engine(Engine *e)
     gather(e->objv, hw->obj_page[en], e->obj_size / G2D_HW_PAGE_SIZE);
 
     for (i = 0; i < 256u; i++) {
-        e->bg_colors[i] = bgr555(bw_rd16(pal + i * 2u));
-        e->obj_colors[i] = bgr555(bw_rd16(pal + 0x200u + i * 2u));
+        e->bg_colors[i] = bgr555(bw_mem_rd16(pal + i * 2u));
+        e->obj_colors[i] = bgr555(bw_mem_rd16(pal + 0x200u + i * 2u));
     }
     e->bg_pal.colors = e->bg_colors;
     e->bg_pal.count = 256;
@@ -1053,7 +1053,7 @@ static int alloc_engine(Engine *e)
             return -1;
         }
         for (i = 0; i < 16u * 256u; i++) {
-            e->obj_ext_colors[i] = (ext != NULL) ? bgr555(bw_rd16(ext + i * 2u))
+            e->obj_ext_colors[i] = (ext != NULL) ? bgr555(bw_mem_rd16(ext + i * 2u))
                                                  : bgr555(0);
         }
         for (i = 0; i < 16u; i++) {
@@ -1114,7 +1114,7 @@ static void lcdc_display(const Engine *e, u8 *rgba, u8 *out6)
 
     for (y = 0; y < SCREEN_H; y++) {
         for (x = 0; x < SCREEN_W; x++) {
-            u16 c = bank != NULL ? bw_rd16(bank + (y * SCREEN_W + x) * 2u) : 0;
+            u16 c = bank != NULL ? bw_mem_rd16(bank + (y * SCREEN_W + x) * 2u) : 0;
             u8 c6[3];
 
             c6[0] = (u8)g2d_c5to6(c & 0x1Fu);
@@ -1286,7 +1286,7 @@ static void capture(const G2dHwState *hw, u32 cap, const u8 *rgba3d,
         if (cap & 0x02000000u) {
             *unsup |= G2D_HW_UNSUP_CAPTURE_FIFO;
         } else {
-            srcb = hw->capture_bank[(bw_rd32(hw->io + REG_DISPCNT) >> 18) & 3u];
+            srcb = hw->capture_bank[(bw_io_file_get(hw->io, REG_DISPCNT, 4) >> 18) & 3u];
         }
     }
     if (dst == NULL) {
@@ -1314,7 +1314,7 @@ static void capture(const G2dHwState *hw, u32 cap, const u8 *rgba3d,
                 }
             }
             if (srcb != NULL) {
-                b = bw_rd16(srcb + ((bofs + i * 2u) & 0x1FFFFu));
+                b = bw_mem_rd16(srcb + ((bofs + i * 2u) & 0x1FFFFu));
             }
             ba = (b >> 15) & 1u;
             if (mode == 0u) {
@@ -1333,7 +1333,7 @@ static void capture(const G2dHwState *hw, u32 cap, const u8 *rgba3d,
                     out |= 0x8000u;
                 }
             }
-            bw_wr16(dst + ((dofs + i * 2u) & 0x1FFFFu), (u16)out);
+            bw_mem_wr16(dst + ((dofs + i * 2u) & 0x1FFFFu), (u16)out);
         }
     }
 }
@@ -1418,8 +1418,8 @@ static int render_scaled_impl(const G2dHwState *hw, u32 scale, int adaptive,
                               u32 unsupported[2], u32 screen_scale[2],
                               u8 *behind, int *behind_done)
 {
-    int main_on_top = (bw_rd16(hw->io + REG_POWCNT1) & 0x8000u) != 0;
-    u32 cap = bw_rd32(hw->io + (G2D_HW_DISPCAPCNT - BW_DS_IO_BASE));
+    int main_on_top = (bw_io_file_get(hw->io, REG_POWCNT1, 2) & 0x8000u) != 0;
+    u32 cap = bw_io_file_get(hw->io, G2D_HW_DISPCAPCNT - BW_DS_IO_BASE, 4);
     u32 flags[2] = { 0, 0 };
     u8 *graphics6 = NULL;
     u8 *down3d = NULL;       /* the 1x 3D frame, scale > 1 and capturing */
@@ -1437,7 +1437,7 @@ static int render_scaled_impl(const G2dHwState *hw, u32 scale, int adaptive,
         *behind_done = 0;
     }
     {
-        u32 dispcnt = bw_rd32(hw->io + REG_DISPCNT);
+        u32 dispcnt = bw_io_file_get(hw->io, REG_DISPCNT, 4);
 
         main_3d = (dispcnt & 0x8u) && (dispcnt & 0x100u)
                   && ((dispcnt >> 16) & 3u) == 1u;
@@ -1545,7 +1545,7 @@ int g2d_hw_render(const G2dHwState *hw, const u8 *rgba3d,
  */
 void g2d_hw_state_from_dsmem(G2dHwState *hw)
 {
-    const u8 *io = (const u8 *)(const void *)bw_io(BW_DS_IO_BASE);
+    const u8 *io = bw_io_file();
     u32 i;
     int e;
 
@@ -1694,7 +1694,7 @@ int g2d_hw_objs_dsmem(int screen, u8 *out)
     if (e == NULL) {
         return -1;
     }
-    main_on_top = (bw_rd16(hw.io + REG_POWCNT1) & 0x8000u) != 0;
+    main_on_top = (bw_io_file_get(hw.io, REG_POWCNT1, 2) & 0x8000u) != 0;
     e->hw = &hw;
     e->scale = 1u;
     e->main = (screen == 0) == main_on_top;

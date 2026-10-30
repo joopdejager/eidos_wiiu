@@ -29,8 +29,8 @@
 #define H 192u
 
 static void w32(u32 addr, u32 v) { *(volatile u32 *)bw_ds_ptr(addr) = v; }
-static void w16(u32 addr, u16 v) { *(volatile u16 *)bw_ds_ptr(addr) = v; }
-static void w8(u32 addr, u8 v)   { *(volatile u8 *)bw_ds_ptr(addr) = v; }
+static void w16(u32 addr, u16 v) { *(volatile u16 *)bw_ds_ptr_w(addr, sizeof(volatile u16)) = v; }
+static void w8(u32 addr, u8 v)   { *(volatile u8 *)bw_ds_ptr_w(addr, sizeof(volatile u8)) = v; }
 
 static void vram_fill(u32 addr, u8 v, u32 n)
 {

@@ -89,6 +89,11 @@ REGIONS = (
 )
 
 PRELUDE_DECL = "void *bw_ds_ptr(unsigned int);"
+# --width (a big-endian target): each rewrite also passes the access width,
+# sizeof the cast's pointed-to type, to bw_ds_ptr_w (sdk/dsmem.h), which
+# needs it for the word-swizzled register file.
+WIDTH = False
+PRELUDE_DECL_WIDTH = "void *bw_ds_ptr_w(unsigned int, unsigned int);"
 
 QUALIFIERS = {"const", "volatile", "restrict", "__restrict", "__volatile__"}
 # Identifiers that cannot end a type name; a parenthesised group made of
@@ -768,6 +773,8 @@ def analyse(src: str):
             form += "-in-" + ("define" if _DEFINE_RE.match(m, pp_start)
                               else "directive")
         cands.append(Site("rewrite", line_of(ls), value, open_, b,
+                          ("((%s)bw_ds_ptr_w(%s, sizeof(*(%s)0)))"
+                           % (type_text, inner, type_text)) if WIDTH else
                           "((%s)bw_ds_ptr(%s))" % (type_text, inner),
                           type_text, form, via))
 
@@ -1004,7 +1011,8 @@ def rewrite(src: str, name: str):
     body = "".join(parts)
     shown = name.replace("\\", "/").replace('"', '\\"')
     prelude = ("/* tools/dsaddr.py: fixed DS addresses go through bw_ds_ptr */\n"
-               "%s\n#line 1 \"%s\"\n" % (PRELUDE_DECL, shown))
+               "%s\n#line 1 \"%s\"\n"
+               % (PRELUDE_DECL + ("\n" + PRELUDE_DECL_WIDTH if WIDTH else ""), shown))
     return prelude + body, rewrites, residue
 
 
@@ -1589,6 +1597,8 @@ def main(argv=None) -> int:
     ap.add_argument("inputs", nargs="*")
     ap.add_argument("-o", "--output")
     ap.add_argument("--name", help="path the #line directive names (default: the input)")
+    ap.add_argument("--width", action="store_true",
+                    help="pass each access's width to bw_ds_ptr_w (big-endian targets)")
     ap.add_argument("--survey", metavar="DIR")
     ap.add_argument("--report", metavar="DIR",
                     help="write the residue report for DIR (to -o, or stdout)")
@@ -1608,6 +1618,8 @@ def main(argv=None) -> int:
     ap.add_argument("--check", action="store_true",
                     help="exit 1 if any input would be rewritten")
     a = ap.parse_args(argv)
+    global WIDTH
+    WIDTH = a.width
     if a.survey:
         return survey(a.survey, a.json, a.show)
     if a.report:

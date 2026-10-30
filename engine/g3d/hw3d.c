@@ -818,8 +818,8 @@ static void clear_planes(G3dTarget *t, u32 d3, u32 cc, u32 cd)
                           + ((x / g_scale + ofs) & 0xFFu)) * 2u;
                 const u8 *c = bw_vram_slot(BW_VSLOT_TEX, 0x40000u + at, NULL);
                 const u8 *d = bw_vram_slot(BW_VSLOT_TEX, 0x60000u + at, NULL);
-                u16 cv = c != NULL ? bw_rd16(c) : 0;
-                u16 dv = d != NULL ? bw_rd16(d) : 0;
+                u16 cv = c != NULL ? bw_mem_rd16(c) : 0;
+                u16 dv = d != NULL ? bw_mem_rd16(d) : 0;
                 size_t o = (size_t)y * t->width + x;
 
                 g3d_bgr555((u16)(cv & 0x7FFFu), &t->rgba[o * 4u],
@@ -1843,7 +1843,7 @@ void g3d_hw_fifo_send(const void *src, u32 bytes)
         g_tr.w_send += bytes / 4u;
     }
     for (i = 0; i + 4u <= bytes; i += 4u) {
-        fifo_word(bw_rd32(p + i));
+        fifo_word(bw_mem_rd32(p + i));
     }
 }
 

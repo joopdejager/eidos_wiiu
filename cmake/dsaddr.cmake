@@ -27,6 +27,12 @@
 set(EIDOS_DSADDR_TOOL ${CMAKE_CURRENT_LIST_DIR}/../tools/dsaddr.py)
 get_filename_component(EIDOS_DSADDR_TOOL "${EIDOS_DSADDR_TOOL}" ABSOLUTE)
 set(EIDOS_DSADDR_DIR ${CMAKE_BINARY_DIR}/dsaddr)
+# A big-endian target keeps the register file word-swizzled (sdk/dsmem.c,
+# io_host), so each rewritten access also names its width.
+set(EIDOS_DSADDR_FLAGS)
+if(CMAKE_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
+    set(EIDOS_DSADDR_FLAGS --width)
+endif()
 get_filename_component(EIDOS_GAMECUT_TOOL "${CMAKE_CURRENT_LIST_DIR}/../tools/gamecut.py" ABSOLUTE)
 # The final returns the copies get (tools/gamereturns.txt, gamecut add_returns).
 get_filename_component(EIDOS_GAMERETURNS "${CMAKE_CURRENT_LIST_DIR}/../tools/gamereturns.txt" ABSOLUTE)
@@ -77,7 +83,7 @@ function(eidos_dsaddr out_var)
         add_custom_command(
             OUTPUT ${out}
             COMMAND ${Python3_EXECUTABLE} ${EIDOS_DSADDR_TOOL}
-                    ${src} -o ${out} --name ${src} ${cut_args}
+                    ${src} -o ${out} --name ${src} ${EIDOS_DSADDR_FLAGS} ${cut_args}
             DEPENDS ${src} ${EIDOS_DSADDR_TOOL} ${cut_deps}
             COMMENT "dsaddr ${shown}"
             VERBATIM)

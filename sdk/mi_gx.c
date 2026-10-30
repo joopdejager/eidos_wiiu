@@ -63,7 +63,7 @@ static void copy_words(const void *src, void *dst, u32 bytes)
         u32 i;
         g3d_hw_refresh();
         for (i = 0; i + 4u <= bytes; i += 4u) {
-            bw_wr32((u8 *)dst + i, bw_io_read32(ra + i));
+            bw_mem_wr32((u8 *)dst + i, bw_io_read32(ra + i));
         }
         return;
     }
@@ -82,7 +82,7 @@ void MIi_CpuSend32(const void *src, volatile void *dst, u32 size)
     }
     /* Every word to the same address: only the last one stays. */
     for (i = 0; i + 4u <= size; i += 4u) {
-        *(volatile u32 *)dst = bw_rd32(s + i);
+        *(volatile u32 *)dst = bw_mem_rd32(s + i);
     }
 }
 

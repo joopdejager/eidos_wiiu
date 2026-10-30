@@ -35,11 +35,11 @@ void CP_SaveContext(void *context)
     w[2] = div[2];
     w[3] = div[3];
     memcpy(ctx, w, 16);
-    mode = (u16)(*(const volatile u16 *)bw_ds_ptr(0x04000280u) & 3u);
+    mode = (u16)(*(const volatile u16 *)bw_ds_ptr_w(0x04000280u, sizeof(*(const volatile u16 *)0)) & 3u);
     w[0] = sqrt[0];
     w[1] = sqrt[1];
     memcpy(ctx + 0x10, w, 8);
     memcpy(ctx + 0x18, &mode, 2);
-    mode = (u16)(*(const volatile u16 *)bw_ds_ptr(0x040002B0u) & 1u);
+    mode = (u16)(*(const volatile u16 *)bw_ds_ptr_w(0x040002B0u, sizeof(*(const volatile u16 *)0)) & 1u);
     memcpy(ctx + 0x1A, &mode, 2);
 }

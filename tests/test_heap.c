@@ -111,8 +111,8 @@ static int test_manager(void)
     BW_CHECK_EQ("the payload is word aligned", (u32)((uintptr_t)p & 3u), 0);
     BW_CHECK_EQ("the live counter counts it", bw_heap_live_blocks(0), 1);
     BW_CHECK_EQ("other heaps are untouched", bw_heap_live_blocks(1), 0);
-    BW_CHECK_EQ("the header's heap id", bw_rd16((u8 *)p - HDR), 0);
-    BW_CHECK_EQ("the header's signature", bw_rd16((u8 *)p - HDR + 2), 0x194E);
+    BW_CHECK_EQ("the header's heap id", bw_mem_rd16((u8 *)p - HDR), 0);
+    BW_CHECK_EQ("the header's signature", bw_mem_rd16((u8 *)p - HDR + 2), 0x194E);
     {
         u32 nz = 0;
         for (i = 0; i < 100; i++) {
@@ -126,7 +126,7 @@ static int test_manager(void)
     /* The heap id in the header is the id without its tail bit. */
     p = raw(0x8001, 40);
     BW_REQUIRE("a tail allocation succeeds", p != NULL);
-    BW_CHECK_EQ("the header drops bit 15", bw_rd16((u8 *)p), 1);
+    BW_CHECK_EQ("the header drops bit 15", bw_mem_rd16((u8 *)p), 1);
     BW_CHECK_EQ("counted on heap 1", bw_heap_live_blocks(1), 1);
     rel((u8 *)p);
     BW_CHECK_EQ("and released", bw_heap_live_blocks(1), 0);

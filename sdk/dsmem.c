@@ -154,6 +154,37 @@ static u8 *io_byte(u32 idx)
     return idx < BW_DS_IO_SIZE ? &g_io_lo[idx] : &g_io_hi[idx - BW_DS_IO_SIZE];
 }
 
+/*
+ * Where a register access of `width` bytes at file index idx lands.  On a
+ * little-endian host that is idx.  On a big-endian host the file is kept as
+ * host-order 32-bit words, the order a matched u32 store leaves, so that a
+ * u32 store and the u16 or u8 reads of its parts agree (IME written as a
+ * word, VRAMCNT_A..D as one word, BG0HOFS/VOFS as one word): the DS byte at
+ * idx is the host byte idx ^ 3, the halfword at idx is the host halfword
+ * at idx ^ 2.  bw_ds_ptr_w applies the same rule to the matched code's own
+ * accesses (tools/dsaddr.py --width).
+ */
+static u32 io_host(u32 idx, u32 width)
+{
+#if BW_HOST_BIG_ENDIAN
+    if (width == 1u || width == 2u) {
+        return idx ^ (4u - width);
+    }
+#endif
+    (void)width;
+    return idx;
+}
+
+static u8 *io_at(u32 idx, u32 width)
+{
+    return io_byte(io_host(idx, width));
+}
+
+static u8 *synced_at(u32 idx, u32 width)
+{
+    return &g_io_synced[io_host(idx, width)];
+}
+
 static void io_snapshot(void)
 {
     memcpy(g_io_synced, g_io_lo, BW_DS_IO_SIZE);
@@ -403,8 +434,8 @@ static u32 io_get(const u8 *p, u32 width)
 {
     switch (width) {
     case 1:  return *p;
-    case 2:  return bw_rd16(p);
-    default: return bw_rd32(p);
+    case 2:  return bw_mem_rd16(p);
+    default: return bw_mem_rd32(p);
     }
 }
 
@@ -412,8 +443,8 @@ static void io_put(u8 *p, u32 width, u32 v)
 {
     switch (width) {
     case 1:  *p = (u8)v; break;
-    case 2:  bw_wr16(p, (u16)v); break;
-    default: bw_wr32(p, v); break;
+    case 2:  bw_mem_wr16(p, (u16)v); break;
+    default: bw_mem_wr32(p, v); break;
     }
 }
 
@@ -429,17 +460,32 @@ static long io_checked(u32 addr, u32 width, const char *who)
 
 volatile u8 *bw_io(u32 addr)
 {
-    return (volatile u8 *)io_byte((u32)io_checked(addr, 1, "bw_io"));
+    return (volatile u8 *)io_at((u32)io_checked(addr, 1, "bw_io"), 1);
 }
 
 u16 bw_io_read16(u32 addr)
 {
-    return (u16)io_get(io_byte((u32)io_checked(addr, 2, "bw_io_read16")), 2);
+    return (u16)io_get(io_at((u32)io_checked(addr, 2, "bw_io_read16"), 2), 2);
 }
 
 u32 bw_io_read32(u32 addr)
 {
-    return io_get(io_byte((u32)io_checked(addr, 4, "bw_io_read32")), 4);
+    return io_get(io_at((u32)io_checked(addr, 4, "bw_io_read32"), 4), 4);
+}
+
+u32 bw_io_peek(u32 addr, u32 width)
+{
+    return io_get(io_at((u32)io_checked(addr, width, "bw_io_peek"), width), width);
+}
+
+void bw_io_poke(u32 addr, u32 width, u32 v)
+{
+    io_put(io_at((u32)io_checked(addr, width, "bw_io_poke"), width), width, v);
+}
+
+const u8 *bw_io_file(void)
+{
+    return g_io_lo;
 }
 
 static void io_write(u32 addr, u32 width, u32 v, const char *who)
@@ -454,18 +500,18 @@ static void io_write(u32 addr, u32 width, u32 v, const char *who)
         const struct IoHook *h = &g_hooks[i];
         if (h->off < idx + width && idx < h->off + h->width) {
             hit[n] = i;
-            old[n] = io_get(io_byte(h->off), h->width);
+            old[n] = io_get(io_at(h->off, h->width), h->width);
             n++;
         }
     }
-    io_put(io_byte(idx), width, v);
-    memcpy(&g_io_synced[idx], io_byte(idx), width);
+    io_put(io_at(idx, width), width, v);
+    memcpy(synced_at(idx, width), io_at(idx, width), width);
     for (i = 0; i < n; i++) {
         /* Re-read the slot each time: an earlier hook may have changed the
          * hook table (it never should, but stale copies would be worse). */
         const struct IoHook h = g_hooks[hit[i]];
-        h.fn(io_addr_of_index(h.off), old[i], io_get(io_byte(h.off), h.width));
-        memcpy(&g_io_synced[h.off], io_byte(h.off), h.width);
+        h.fn(io_addr_of_index(h.off), old[i], io_get(io_at(h.off, h.width), h.width));
+        memcpy(synced_at(h.off, h.width), io_at(h.off, h.width), h.width);
     }
 }
 
@@ -500,7 +546,7 @@ void bw_io_hook(u32 addr, u32 width, BwIoWriteHook hook)
             } else {
                 h->width = width;
                 h->fn = hook;
-                memcpy(&g_io_synced[idx], io_byte(idx), width);
+                memcpy(synced_at(idx, width), io_at(idx, width), width);
             }
             return;
         }
@@ -519,7 +565,7 @@ void bw_io_hook(u32 addr, u32 width, BwIoWriteHook hook)
     g_hooks[g_hook_count].fn = hook;
     g_hook_count++;
     /* A hook sees changes from the moment it is installed, not before. */
-    memcpy(&g_io_synced[idx], io_byte(idx), width);
+    memcpy(synced_at(idx, width), io_at(idx, width), width);
 }
 
 void bw_io_access_hook(u32 lo, u32 hi, BwIoAccessHook fn)
@@ -569,13 +615,13 @@ void bw_io_sync(void)
         const struct IoHook h = g_hooks[i];
         u32 before;
 
-        if (memcmp(io_byte(h.off), &g_io_synced[h.off], h.width) == 0) {
+        if (memcmp(io_at(h.off, h.width), synced_at(h.off, h.width), h.width) == 0) {
             continue;
         }
-        before = io_get(&g_io_synced[h.off], h.width);
-        memcpy(&g_io_synced[h.off], io_byte(h.off), h.width);
-        h.fn(io_addr_of_index(h.off), before, io_get(io_byte(h.off), h.width));
-        memcpy(&g_io_synced[h.off], io_byte(h.off), h.width);
+        before = io_get(synced_at(h.off, h.width), h.width);
+        memcpy(synced_at(h.off, h.width), io_at(h.off, h.width), h.width);
+        h.fn(io_addr_of_index(h.off), before, io_get(io_at(h.off, h.width), h.width));
+        memcpy(synced_at(h.off, h.width), io_at(h.off, h.width), h.width);
     }
     io_snapshot();
 }
@@ -816,7 +862,7 @@ void bw_vram_remap(void)
     int b;
 
     for (b = 0; b < BW_VRAM_BANKS; b++) {
-        cnt[b] = g_io_lo[k_bank_reg[b]];
+        cnt[b] = *io_at(k_bank_reg[b], 1);
     }
     if (g_vram_window) {
         vram_rehome(cnt);
@@ -854,7 +900,7 @@ static void vram_current(void)
     int b;
 
     for (b = 0; b < BW_VRAM_BANKS; b++) {
-        if (g_io_lo[k_bank_reg[b]] != g_vramcnt_built[b]) {
+        if (*io_at(k_bank_reg[b], 1) != g_vramcnt_built[b]) {
             bw_vram_remap();
             return;
         }
@@ -980,6 +1026,20 @@ void *bw_ds_try_ptr(u32 addr)
 void *bw_ds_ptr(unsigned int addr);
 typedef char bw_u32_is_unsigned_int[(sizeof(u32) == sizeof(unsigned int)
                                      && (u32)-1 == (unsigned int)-1) ? 1 : -1];
+
+void *bw_ds_ptr_w(u32 addr, u32 width)
+{
+#if BW_HOST_BIG_ENDIAN
+    if (addr >> 24 == BW_DS_IO_BASE >> 24 && (width == 1u || width == 2u)) {
+        u8 *p = (u8 *)bw_ds_ptr(addr);  /* the checks and the access hooks */
+        long idx = io_index(addr, width);
+
+        return idx >= 0 && reg_find(addr) == NULL ? io_at((u32)idx, width) : p;
+    }
+#endif
+    (void)width;
+    return bw_ds_ptr(addr);
+}
 
 void *bw_ds_ptr(u32 addr)
 {
@@ -1143,7 +1203,11 @@ static int identity_wanted(void)
 {
     const char *env = getenv("BW_DS_IDENTITY");
 
-    return sizeof(void *) == 4u && !(env != NULL && env[0] == '0');
+    /* Not on a big-endian host: a register access that skips bw_ds_ptr_w
+     * would skip io_host's swizzle (and the Wii U, the reason for the
+     * big-endian build, cannot map 0x02000000 anyway). */
+    return sizeof(void *) == 4u && !BW_HOST_BIG_ENDIAN
+        && !(env != NULL && env[0] == '0');
 }
 
 static void identity_choose(void)
@@ -1254,7 +1318,7 @@ void bw_ds_reset(void)
     memset(g_io_lo, 0, BW_DS_IO_SIZE);
     memset(g_io_hi, 0, IO_HI_SIZE);
     /* KEYINPUT is active low: every button released. */
-    bw_wr16(&g_io_lo[KEYINPUT_OFF], 0x03FFu);
+    io_put(io_at(KEYINPUT_OFF, 2), 2, 0x03FFu);
     io_snapshot();
 
     g_hook_count = 0;

@@ -57,9 +57,9 @@ static u8 *t_bank_a, *t_bank_e, *t_bank_i;
 static u8 g_top[W * H * 4], g_bottom[W * H * 4];
 static u32 g_flags[2];
 
-static void io16(u32 addr, u16 v) { bw_wr16(t_io + (addr - BW_DS_IO_BASE), v); }
-static void io32(u32 addr, u32 v) { bw_wr32(t_io + (addr - BW_DS_IO_BASE), v); }
-static void io8(u32 addr, u8 v)   { t_io[addr - BW_DS_IO_BASE] = v; }
+static void io16(u32 addr, u16 v) { bw_io_poke(addr, 2, v); }
+static void io32(u32 addr, u32 v) { bw_io_poke(addr, 4, v); }
+static void io8(u32 addr, u8 v)   { bw_io_poke(addr, 1, v); }
 
 static void vram_put(u32 addr, const u8 *src, u32 n)
 {
@@ -87,33 +87,33 @@ static void vram16(u32 addr, u16 v)
 {
     u8 b[2];
 
-    bw_wr16(b, v);
+    bw_mem_wr16(b, v);
     vram_put(addr, b, 2);
 }
 
 /* engine: 0 main, 1 sub; which: 0 BG, 1 OBJ. */
 static void pal_set(int engine, int which, u32 i, u16 c)
 {
-    bw_wr16(t_pal + (u32)engine * 0x400u + (u32)which * 0x200u + i * 2u, c);
+    bw_mem_wr16(t_pal + (u32)engine * 0x400u + (u32)which * 0x200u + i * 2u, c);
 }
 
 static void oam_set(int engine, u32 i, u16 a0, u16 a1, u16 a2)
 {
     u8 *e = t_oam + (u32)engine * 0x400u + i * 8u;
 
-    bw_wr16(e, a0);
-    bw_wr16(e + 2, a1);
-    bw_wr16(e + 4, a2);
+    bw_mem_wr16(e, a0);
+    bw_mem_wr16(e + 2, a1);
+    bw_mem_wr16(e + 4, a2);
 }
 
 static void oam_affine(int engine, u32 group, s16 pa, s16 pb, s16 pc, s16 pd)
 {
     u8 *g = t_oam + (u32)engine * 0x400u + group * 32u;
 
-    bw_wr16(g + 6, (u16)pa);
-    bw_wr16(g + 14, (u16)pb);
-    bw_wr16(g + 22, (u16)pc);
-    bw_wr16(g + 30, (u16)pd);
+    bw_mem_wr16(g + 6, (u16)pa);
+    bw_mem_wr16(g + 14, (u16)pb);
+    bw_mem_wr16(g + 22, (u16)pc);
+    bw_mem_wr16(g + 30, (u16)pd);
 }
 
 /*
@@ -266,7 +266,7 @@ static void test_display(void)
     /* Display mode 2: bank A shown directly. */
     reset();
     io8(0x04000240u, 0x80);               /* A in LCDC mode */
-    bw_wr16(t_bank_a + (10u * 256u + 3u) * 2u, GREEN);
+    bw_mem_wr16(t_bank_a + (10u * 256u + 3u) * 2u, GREEN);
     io32(0x04000000u, 0x20000u);
     render(NULL);
     BW_CHECK_EQ("VRAM display", rgb_of(g_top, 3, 10), C_GREEN);
@@ -606,7 +606,7 @@ static void test_extpal(void)
     io8(0x04000244u, 0x84);                       /* E: BG ext palettes */
     pal_set(0, 0, 0, BLUE);
     pal_set(0, 0, 7, RED);                        /* the plain palette */
-    bw_wr16(t_bank_e + 2u * 0x2000u + (3u * 256u + 7u) * 2u, GREEN);
+    bw_mem_wr16(t_bank_e + 2u * 0x2000u + (3u * 256u + 7u) * 2u, GREEN);
     tile8(0x06000000u + 64u, 7);
     vram16(0x06004000u, (u16)(1u | (3u << 12)));
     io16(0x04000008u, (u16)(0x80u | (8u << 8) | 0x2000u));   /* slot 2 */
@@ -620,7 +620,7 @@ static void test_extpal(void)
 
     /* Sub engine OBJ through bank I's extended palette. */
     io8(0x04000249u, 0x83);                       /* I: sub OBJ ext */
-    bw_wr16(t_bank_i + (2u * 256u + 5u) * 2u, YELLOW);
+    bw_mem_wr16(t_bank_i + (2u * 256u + 5u) * 2u, YELLOW);
     pal_set(1, 0, 0, BLUE);
     tile8(0x06600000u, 5);
     oam_set(1, 0, (u16)(0x2000u | 40u), 40u, (u16)(2u << 12));
@@ -814,7 +814,7 @@ static void test_mosaic(void)
 
 static u16 bank16(const u8 *bank, u32 ofs)
 {
-    return bw_rd16(bank + ofs);
+    return bw_mem_rd16(bank + ofs);
 }
 
 static void test_capture(void)
@@ -896,9 +896,9 @@ static void test_capture(void)
      */
     io32(0x04000000u, 0x10000u | (2u << 18));
     pal_set(0, 0, 0, RED);
-    bw_wr16(bank_c + 0x8000u, 0x8000u | BLUE);
-    bw_wr16(bank_c + 0x8002u, RED);
-    bw_wr16(bank_c + 0x8000u + 256u, 0x8000u | GREEN);
+    bw_mem_wr16(bank_c + 0x8000u, 0x8000u | BLUE);
+    bw_mem_wr16(bank_c + 0x8002u, RED);
+    bw_mem_wr16(bank_c + 0x8000u + 256u, 0x8000u | GREEN);
     io32(0x04000064u, 0x80000000u | (2u << 29) | (1u << 26) | (0u << 20)
                       | (3u << 16) | (1u << 18) | (8u << 8) | 8u);
     render(NULL);

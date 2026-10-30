@@ -1133,7 +1133,7 @@ static void test_direct(void)
     run(256);
     BW_CHECK_EQ("capture: one-shot done", g_sw->captureStatus, 0);
     for (i = 0, n_pos = 0, n_neg = 0; i < 128; i++) {
-        s16 v = (s16)bw_rd16(cap + 2 * i);
+        s16 v = (s16)bw_mem_rd16(cap + 2 * i);
         n_pos += v > 0;
         n_neg += v < 0;
     }
@@ -1177,18 +1177,18 @@ static void test_driver_info(void)
     BW_CHECK_EQ("info: player 0 no tracks", info[0x540 + 8], 0xFF);
     BW_CHECK_EQ("info: player 2 active flag", info[0x540 + 2 * 0x24] & 0x80, 0x80);
     BW_CHECK_EQ("info: track 1 extFader",
-                (s16)bw_rd16(info + 0x780 + 1 * 0x40 + 0x0A), -120);
+                (s16)bw_mem_rd16(info + 0x780 + 1 * 0x40 + 0x0A), -120);
     BW_CHECK_EQ("info: track 0 volume", info[0x780 + 4], 127);
-    BW_CHECK_EQ("info: locked channels", bw_rd32(info + 0x11C4), 0x8000);
-    BW_CHECK_EQ("info: work address", bw_rd32(info + 0x11C0), (u32)(uintptr_t)info);
+    BW_CHECK_EQ("info: locked channels", bw_mem_rd32(info + 0x11C4), 0x8000);
+    BW_CHECK_EQ("info: work address", bw_mem_rd32(info + 0x11C0), (u32)(uintptr_t)info);
     /* Track 0's channel list names the channel playing its note. */
-    link = bw_rd32(info + 0x780 + 0x3C);
+    link = bw_mem_rd32(info + 0x780 + 0x3C);
     REQ("info: track 0 has a channel", link != 0);
     c = (int)((link - (u32)(uintptr_t)info) / 0x54);
     CHECK_RANGE("info: a channel slot", c, 0, 15);
     BW_CHECK_EQ("info: its myNo", info[(size_t)c * 0x54], c);
     BW_CHECK_EQ("info: its key", info[(size_t)c * 0x54 + 8], 60);
-    BW_CHECK_EQ("info: chCtrl busy", bw_rd32(info + 0x1180 + 4 * (u32)c) >> 31, 1);
+    BW_CHECK_EQ("info: chCtrl busy", bw_mem_rd32(info + 0x1180 + 4 * (u32)c) >> 31, 1);
 }
 
 /* ------------------------------------------------------------------ */

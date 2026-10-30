@@ -293,21 +293,19 @@ int bw_snd_fall_rate(int v)
 
 static int  tr_u8(const Track *t, int o)  { return t->r[o]; }
 static int  tr_s8(const Track *t, int o)  { return (s8)t->r[o]; }
-static int  tr_s16(const Track *t, int o) { return (s16)bw_rd16(t->r + o); }
-static int  tr_u16(const Track *t, int o) { return bw_rd16(t->r + o); }
+static int  tr_s16(const Track *t, int o) { return (s16)bw_mem_rd16(t->r + o); }
+static int  tr_u16(const Track *t, int o) { return bw_mem_rd16(t->r + o); }
 static void tr_set8(Track *t, int o, int v) { t->r[o] = (u8)v; }
 static void tr_set16(Track *t, int o, int v)
 {
-    t->r[o] = (u8)v;
-    t->r[o + 1] = (u8)((u32)v >> 8);
+    bw_mem_wr16(t->r + o, (u16)v);
 }
 static int  pl_u8(const Player *p, int o)  { return p->r[o]; }
-static int  pl_s16(const Player *p, int o) { return (s16)bw_rd16(p->r + o); }
-static int  pl_u16(const Player *p, int o) { return bw_rd16(p->r + o); }
+static int  pl_s16(const Player *p, int o) { return (s16)bw_mem_rd16(p->r + o); }
+static int  pl_u16(const Player *p, int o) { return bw_mem_rd16(p->r + o); }
 static void pl_set16(Player *p, int o, int v)
 {
-    p->r[o] = (u8)v;
-    p->r[o + 1] = (u8)((u32)v >> 8);
+    bw_mem_wr16(p->r + o, (u16)v);
 }
 
 static void store(u8 *img, u32 size_of_img, u32 off, u32 value, u32 size)
@@ -315,8 +313,14 @@ static void store(u8 *img, u32 size_of_img, u32 off, u32 value, u32 size)
     u32 i;
     if (!(size == 1 || size == 2 || size == 4) || off + size > size_of_img)
         return;
-    for (i = 0; i < size; i++)
-        img[off + i] = (u8)(value >> (8 * i));
+    (void)i;
+    /* The image is the driver's work area: DS memory order (types.h). */
+    if (size == 1)
+        img[off] = (u8)value;
+    else if (size == 2)
+        bw_mem_wr16(img + off, (u16)value);
+    else
+        bw_mem_wr32(img + off, value);
 }
 
 static int clampi(int v, int lo, int hi)
@@ -1587,18 +1591,15 @@ u32 bw_sndseq_dropped_notes(void)
     return g.dropped;
 }
 
+/* The driver's work area is game memory: DS memory order (types.h). */
 static void put16(u8 *p, int v)
 {
-    p[0] = (u8)v;
-    p[1] = (u8)((u32)v >> 8);
+    bw_mem_wr16(p, (u16)v);
 }
 
 static void put32(u8 *p, u32 v)
 {
-    p[0] = (u8)v;
-    p[1] = (u8)(v >> 8);
-    p[2] = (u8)(v >> 16);
-    p[3] = (u8)(v >> 24);
+    bw_mem_wr32(p, v);
 }
 
 #define WORK_CHANNEL 0x000

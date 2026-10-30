@@ -928,8 +928,8 @@ static void gfx_build(OptWork *w)
 
 static void screen_build(OptWork *w)
 {
-    func_0207D534((volatile u16 *)bw_ds_ptr(0x0400006Cu), -16);
-    func_0207D534((volatile u16 *)bw_ds_ptr(0x0400106Cu), -16);
+    func_0207D534((volatile u16 *)bw_ds_ptr_w(0x0400006Cu, sizeof(*(volatile u16 *)0)), -16);
+    func_0207D534((volatile u16 *)bw_ds_ptr_w(0x0400106Cu, sizeof(*(volatile u16 *)0)), -16);
     func_02043534(0);
     func_020435F4(0);
     bw_io_write16(0x04000050, 0);

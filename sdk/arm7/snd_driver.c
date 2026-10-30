@@ -496,20 +496,10 @@ static void cmd_driver_info(const BwSndCommand *c)
     for (i = 0; i < BW_SNDHW_CHANNELS; i++) {
         u32 v = bw_sndhw_cnt(i);
         u8 *p = info + DI_CHCTRL + (size_t)i * 4;
-        p[0] = (u8)v;
-        p[1] = (u8)(v >> 8);
-        p[2] = (u8)(v >> 16);
-        p[3] = (u8)(v >> 24);
+        bw_mem_wr32(p, v);
     }
-    info[DI_WORK_ADDRESS] = (u8)addr;
-    info[DI_WORK_ADDRESS + 1] = (u8)(addr >> 8);
-    info[DI_WORK_ADDRESS + 2] = (u8)(addr >> 16);
-    info[DI_WORK_ADDRESS + 3] = (u8)(addr >> 24);
-    {
-        u32 l = bw_sndseq_locked();
-        info[DI_LOCKED] = (u8)l;
-        info[DI_LOCKED + 1] = (u8)(l >> 8);
-    }
+    bw_mem_wr32(info + DI_WORK_ADDRESS, addr);
+    bw_mem_wr32(info + DI_LOCKED, bw_sndseq_locked());   /* bytes 2-3 were 0 */
 }
 
 /* ------------------------------------------------------------------ */
@@ -816,9 +806,9 @@ int bw_snd_player_state(int player, BwSndPlayerState *out)
     out->paused = pi.paused;
     out->loops = pi.loops;
     out->tick = pi.tick;
-    out->player_fader = (s16)bw_rd16(pi.reg + BW_SNDPL_EXT_FADER);
-    out->tempo = bw_rd16(pi.reg + BW_SNDPL_TEMPO);
-    out->tempo_ratio = bw_rd16(pi.reg + BW_SNDPL_TEMPO_RATIO);
+    out->player_fader = (s16)bw_mem_rd16(pi.reg + BW_SNDPL_EXT_FADER);
+    out->tempo = bw_mem_rd16(pi.reg + BW_SNDPL_TEMPO);
+    out->tempo_ratio = bw_mem_rd16(pi.reg + BW_SNDPL_TEMPO_RATIO);
     out->volume = pi.reg[BW_SNDPL_VOLUME];
     out->prio = pi.reg[BW_SNDPL_PRIO];
     out->tracks = pi.track_mask;

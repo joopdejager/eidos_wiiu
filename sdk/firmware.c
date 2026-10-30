@@ -494,9 +494,13 @@ static void put32(u8 *p, u32 v)
     put16(p + 2, v >> 16);
 }
 
-/* The 0x70 bytes the ARM7 copies to RAM.                                   */
-static void user_info(const BwFirmwareSettings *s, u8 out[BW_FW_USER_INFO_SIZE])
+/* The 0x70 bytes the ARM7 copies to RAM: little-endian in the flash image,
+ * in DS memory order (types.h, bw_mem_wr16) in the copy the game reads.    */
+static void user_info_as(const BwFirmwareSettings *s, u8 out[BW_FW_USER_INFO_SIZE],
+                         int ram)
 {
+#define put16(p, v) (ram ? bw_mem_wr16((p), (u16)(v)) : put16((p), (v)))
+#define put32(p, v) (ram ? bw_mem_wr32((p), (u32)(v)) : put32((p), (v)))
     u32 i;
     u64 rtc = (u64)s->rtc_offset;
 
@@ -524,8 +528,19 @@ static void user_info(const BwFirmwareSettings *s, u8 out[BW_FW_USER_INFO_SIZE])
     out[0x63] = s->tp_y2;
     put16(out + 0x64, (u32)(s->language & 7) | ((u32)(s->backlight & 3) << 4));
     out[0x66] = 0;                              /* year set: 2000           */
-    put32(out + 0x68, (u32)rtc);
-    put32(out + 0x6C, (u32)(rtc >> 32));
+    if (ram) {
+        memcpy(out + 0x68, &rtc, 8);        /* one s64 in DS memory order */
+    } else {
+        put32(out + 0x68, (u32)rtc);
+        put32(out + 0x6C, (u32)(rtc >> 32));
+    }
+#undef put16
+#undef put32
+}
+
+static void user_info(const BwFirmwareSettings *s, u8 out[BW_FW_USER_INFO_SIZE])
+{
+    user_info_as(s, out, 0);
 }
 
 u16 bw_firmware_crc16(u16 crc, const u8 *data, u32 size)
@@ -555,8 +570,8 @@ void bw_firmware_apply(void)
     const BwFirmwareSettings *s = bw_firmware_settings();
     u8 info[BW_FW_USER_INFO_SIZE];
 
-    user_info(s, info);
+    user_info_as(s, info, 1);
     memcpy(bw_ds_ptr(BW_FW_USER_INFO_ADDR), info, sizeof info);
     memcpy(bw_ds_ptr(BW_FW_MAC_ADDR), s->mac, 6);
-    put16((u8 *)bw_ds_ptr(BW_FW_CHANNELS_ADDR), s->channels);
+    bw_mem_wr16((u8 *)bw_ds_ptr(BW_FW_CHANNELS_ADDR), s->channels);
 }

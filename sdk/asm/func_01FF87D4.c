@@ -26,7 +26,7 @@
 
 void SCFGi_SwitchCpuSpeed(int cpuSpeed)
 {
-    volatile u16 *clk = (volatile u16 *)bw_ds_ptr(0x04004004u);
+    volatile u16 *clk = (volatile u16 *)bw_ds_ptr_w(0x04004004u, sizeof(*(volatile u16 *)0));
     u32 v = (u32)*clk;
 
     v &= ~1u;

@@ -42,7 +42,7 @@ void MI_CpuFill32(void *dst, u32 value, u32 size)
     u32 i;
 
     for (i = 0; i + 4 <= size; i += 4) {
-        bw_wr32(p + i, value);
+        bw_mem_wr32(p + i, value);
     }
 }
 

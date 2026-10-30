@@ -93,7 +93,7 @@ void GX_VRAMCNT_SetLCDC_(int lcdc)
 
     for (i = 0; i < 9; i++) {
         if (lcdc & (1 << i)) {
-            *(volatile u8 *)bw_ds_ptr(reg[i]) = VRAMCNT_LCDC;
+            *(volatile u8 *)bw_ds_ptr_w(reg[i], sizeof(*(volatile u8 *)0)) = VRAMCNT_LCDC;
         }
     }
 }

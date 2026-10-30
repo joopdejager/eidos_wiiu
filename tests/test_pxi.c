@@ -84,7 +84,7 @@ static void recorder(int tag, u32 data, BOOL err)
 }
 
 static u32 rd32(u32 addr) { return *(volatile u32 *)bw_ds_ptr(addr); }
-static u16 rd16(u32 addr) { return *(volatile u16 *)bw_ds_ptr(addr); }
+static u16 rd16(u32 addr) { return *(volatile u16 *)bw_ds_ptr_w(addr, sizeof(volatile u16)); }
 
 /* IRQ 18 as the matched PXI init installs it, counted.                     */
 static int g_irq18_taken;
@@ -304,9 +304,9 @@ static void test_rtc(void)
     BW_CHECK_EQ("rtc: second", time.second, 30);
 
     /* Status 2 is kept by the ARM7 and read back.                          */
-    *(volatile u16 *)bw_ds_ptr(0x02FFFDEAu) = 0x0044;
+    *(volatile u16 *)bw_ds_ptr_w(0x02FFFDEAu, sizeof(volatile u16)) = 0x0044;
     BW_CHECK_EQ("rtc: write status 2", RTCi_WriteRawStatus2Async(), 1);
-    *(volatile u16 *)bw_ds_ptr(0x02FFFDEAu) = 0;
+    *(volatile u16 *)bw_ds_ptr_w(0x02FFFDEAu, sizeof(volatile u16)) = 0;
     BW_CHECK_EQ("rtc: read status 2", RtcSendPxiCommand(0x17), 1);
     BW_CHECK_EQ("rtc: status 2 read back", rd16(0x02FFFDEAu), 0x0044);
 

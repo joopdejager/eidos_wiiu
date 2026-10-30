@@ -36,8 +36,8 @@ void CPi_RestoreContext(const void *context)
     div[3] = w[3];
     memcpy(&divmode, ctx + 0x18, 2);
     memcpy(&sqrtmode, ctx + 0x1A, 2);
-    *(volatile u16 *)bw_ds_ptr(0x04000280u) = divmode;
-    *(volatile u16 *)bw_ds_ptr(0x040002B0u) = sqrtmode;
+    *(volatile u16 *)bw_ds_ptr_w(0x04000280u, sizeof(*(volatile u16 *)0)) = divmode;
+    *(volatile u16 *)bw_ds_ptr_w(0x040002B0u, sizeof(*(volatile u16 *)0)) = sqrtmode;
     memcpy(w, ctx + 0x10, 8);
     sqrt[0] = w[0];
     sqrt[1] = w[1];

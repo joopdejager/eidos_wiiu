@@ -24,6 +24,6 @@ void MIi_CpuClear16(u16 data, void *destp, u32 size)
     u32 off;
 
     for (off = 0; (s32)off < (s32)size; off += 2) {
-        bw_wr16(d + off, data);
+        bw_mem_wr16(d + off, data);
     }
 }

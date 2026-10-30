@@ -158,7 +158,7 @@ static int reported(const char *what)
 static u32 game_keys(void)
 {
     u16 keyinput = bw_io_read16(BW_REG_KEYINPUT);
-    u16 xy = *(volatile u16 *)bw_ds_ptr(BW_HW_BUTTON_XY_BUF);
+    u16 xy = *(volatile u16 *)bw_ds_ptr_w(BW_HW_BUTTON_XY_BUF, sizeof(volatile u16));
     u32 key = ((u32)keyinput | (u32)xy) ^ 0x2FFFu;
 
     key &= 0x2FFFu;

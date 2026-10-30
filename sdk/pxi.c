@@ -124,45 +124,29 @@ static void raise_irq(u32 mask)
     if (g_pxi.irq_sink) {
         g_pxi.irq_sink(mask);
     } else {
-        volatile u8 *p = bw_io(BW_REG_IF);
-        u32 v = (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) |
-                ((u32)p[3] << 24);
-        v |= mask;
-        p[0] = (u8)v;
-        p[1] = (u8)(v >> 8);
-        p[2] = (u8)(v >> 16);
-        p[3] = (u8)(v >> 24);
+        bw_io_poke(BW_REG_IF, 4, bw_io_peek(BW_REG_IF, 4) | mask);
     }
 }
 
 /* Register-file access that bypasses the hooks (the hooks call these).     */
 static u16 reg16(u32 addr)
 {
-    volatile u8 *p = bw_io(addr);
-    return (u16)(p[0] | (p[1] << 8));
+    return (u16)bw_io_peek(addr, 2);
 }
 
 static void set_reg16(u32 addr, u16 v)
 {
-    volatile u8 *p = bw_io(addr);
-    p[0] = (u8)v;
-    p[1] = (u8)(v >> 8);
+    bw_io_poke(addr, 2, v);
 }
 
 static u32 reg32(u32 addr)
 {
-    volatile u8 *p = bw_io(addr);
-    return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) |
-           ((u32)p[3] << 24);
+    return bw_io_peek(addr, 4);
 }
 
 static void set_reg32(u32 addr, u32 v)
 {
-    volatile u8 *p = bw_io(addr);
-    p[0] = (u8)v;
-    p[1] = (u8)(v >> 8);
-    p[2] = (u8)(v >> 16);
-    p[3] = (u8)(v >> 24);
+    bw_io_poke(addr, 4, v);
 }
 
 /*

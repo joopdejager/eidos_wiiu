@@ -50,6 +50,10 @@ extern "C" {
  * store that silently went nowhere is the worst kind of port bug.
  */
 void *bw_ds_ptr(u32 addr);
+/* bw_ds_ptr for an access `width` bytes wide (sizeof the pointed-to type):
+ * the same pointer except for a register on a big-endian host, where the
+ * register file is word-swizzled (sdk/dsmem.c, io_host).                 */
+void *bw_ds_ptr_w(u32 addr, u32 width);
 
 /* As bw_ds_ptr, but returns NULL instead of panicking (for probes). */
 void *bw_ds_try_ptr(u32 addr);
@@ -156,6 +160,33 @@ void bw_io_hook(u32 addr, u32 width, BwIoWriteHook hook);
 
 /* Compare the register file with its last-synced copy, run changed hooks. */
 void bw_io_sync(void);
+
+/* Register reads and stores that run no hook, as a matched store would not
+ * (the hooks themselves use these).  `width` is 1, 2 or 4.                */
+u32  bw_io_peek(u32 addr, u32 width);
+void bw_io_poke(u32 addr, u32 width, u32 v);
+
+/*
+ * The 64 KiB register window as one block, for a reader that indexes it by
+ * offset (the 2D compositor), and the read of one register out of it or
+ * out of a copy of it.  On a big-endian host the block is word-swizzled
+ * (sdk/dsmem.c, io_host), so an offset is only meaningful through this.
+ */
+const u8 *bw_io_file(void);
+
+static inline u32 bw_io_file_get(const u8 *file, u32 off, u32 width)
+{
+#if BW_HOST_BIG_ENDIAN
+    if (width == 1u || width == 2u) {
+        off ^= 4u - width;
+    }
+#endif
+    switch (width) {
+    case 1:  return file[off];
+    case 2:  return bw_mem_rd16(file + off);
+    default: return bw_mem_rd32(file + off);
+    }
+}
 
 /* ------------------------------------------------------------------ */
 /* VRAM banks                                                          */

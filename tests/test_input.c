@@ -65,7 +65,7 @@ static u16 keyinput(void)
 
 static u16 xybuf(void)
 {
-    return *(volatile u16 *)bw_ds_ptr(BW_HW_BUTTON_XY_BUF);
+    return *(volatile u16 *)bw_ds_ptr_w(BW_HW_BUTTON_XY_BUF, sizeof(volatile u16));
 }
 
 /* One DS frame: the hardware latches the input, then the game reads it.   */
@@ -313,7 +313,7 @@ static void test_names(void)
 
 static void div_set(u16 mode, u64 n, u64 d)
 {
-    *(volatile u16 *)bw_ds_ptr(BW_REG_DIVCNT) = mode;
+    *(volatile u16 *)bw_ds_ptr_w(BW_REG_DIVCNT, sizeof(*(volatile u16 *)0)) = mode;
     *(volatile u32 *)bw_ds_ptr(BW_REG_DIV_NUMER) = (u32)n;
     *(volatile u32 *)bw_ds_ptr(BW_REG_DIV_NUMER + 4u) = (u32)(n >> 32);
     *(volatile u32 *)bw_ds_ptr(BW_REG_DIV_DENOM) = (u32)d;
@@ -335,7 +335,7 @@ static void test_divider(void)
      * 32 - 224, both as u32 stores of negative numbers.                    */
     div_set(0, (u32)(-688128), (u32)(-192));
     BW_CHECK_EQ("div 32: busy never set",
-                *(volatile u16 *)bw_ds_ptr(BW_REG_DIVCNT) & 0x8000, 0);
+                *(volatile u16 *)bw_ds_ptr_w(BW_REG_DIVCNT, sizeof(*(volatile u16 *)0)) & 0x8000, 0);
     BW_CHECK_EQ("div 32: signed quotient",
                 *(volatile u32 *)bw_ds_ptr(BW_REG_DIV_RESULT), 3584);
     /* 2^28 / 3584 = 74898 remainder 1024 (TP_SetCalibrateParam).          */
@@ -358,7 +358,7 @@ static void test_divider(void)
                 rd64(BW_REG_DIV_RESULT) == 0x00000000FFFFFFFFull, 1);
     BW_CHECK_EQ("div 0: rem", rd64(BW_REG_DIV_REM) == 5, 1);
     BW_CHECK_EQ("div 0: DIVCNT bit 14",
-                *(volatile u16 *)bw_ds_ptr(BW_REG_DIVCNT) & 0x4000, 0x4000);
+                *(volatile u16 *)bw_ds_ptr_w(BW_REG_DIVCNT, sizeof(*(volatile u16 *)0)) & 0x4000, 0x4000);
     div_set(2, (u64)-9, 0);
     BW_CHECK_EQ("div 0 64: result +1", rd64(BW_REG_DIV_RESULT) == 1, 1);
     /* 64/32 and 64/64.                                                     */
@@ -366,7 +366,7 @@ static void test_divider(void)
     BW_CHECK_EQ("div 64/32", rd64(BW_REG_DIV_RESULT) ==
                 (u64)-(s64)0x100000000ll, 1);
     BW_CHECK_EQ("div 64/32: DIVCNT bit 14 clear",
-                *(volatile u16 *)bw_ds_ptr(BW_REG_DIVCNT) & 0x4000, 0);
+                *(volatile u16 *)bw_ds_ptr_w(BW_REG_DIVCNT, sizeof(*(volatile u16 *)0)) & 0x4000, 0);
     div_set(2, 0x0000001000000000ull, 0x0000000100000000ull);
     BW_CHECK_EQ("div 64/64", rd64(BW_REG_DIV_RESULT) == 16, 1);
     div_set(2, 0x8000000000000000ull, (u64)-1);
@@ -374,12 +374,12 @@ static void test_divider(void)
                 rd64(BW_REG_DIV_RESULT) == 0x8000000000000000ull, 1);
 
     /* Square root: floor, 32- and 64-bit parameters.                       */
-    *(volatile u16 *)bw_ds_ptr(BW_REG_SQRTCNT) = 0;
+    *(volatile u16 *)bw_ds_ptr_w(BW_REG_SQRTCNT, sizeof(*(volatile u16 *)0)) = 0;
     *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_PARAM) = 99;
     *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_PARAM + 4u) = 1;
     BW_CHECK_EQ("sqrt 32: ignores the upper word",
                 *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_RESULT), 9);
-    *(volatile u16 *)bw_ds_ptr(BW_REG_SQRTCNT) = 1;
+    *(volatile u16 *)bw_ds_ptr_w(BW_REG_SQRTCNT, sizeof(*(volatile u16 *)0)) = 1;
     *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_PARAM) = 0xFFFFFFFFu;
     *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_PARAM + 4u) = 0xFFFFFFFFu;
     BW_CHECK_EQ("sqrt 64: 2^64 - 1",
