@@ -859,9 +859,14 @@ def analyse(src: str):
         if in_pp:
             form += "-in-" + ("define" if _DEFINE_RE.match(m, pp_start)
                               else "directive")
+        # The width matters only for a register (the swizzled file); a
+        # cast to anything else, an incomplete struct included, keeps the
+        # plain call.  A macro or callee parameter (value None) is there for
+        # registers.
+        io = value is None or 0x04000000 <= value <= 0x04FFFFFF
         cands.append(Site("rewrite", line_of(ls), value, open_, b,
                           ("((%s)bw_ds_ptr_w(%s, sizeof(*(%s)0)))"
-                           % (type_text, inner, type_text)) if WIDTH else
+                           % (type_text, inner, type_text)) if WIDTH and io else
                           "((%s)bw_ds_ptr(%s))" % (type_text, inner),
                           type_text, form, via))
 
@@ -1822,7 +1827,7 @@ def main(argv=None) -> int:
             source = gamecut.add_returns(source, gamecut.returns_table())
             # mwcc's hand-written va_start/va_arg (gamecut.fix_va_macros)
             source = gamecut.fix_va_macros(source)
-            _rewrite_local_headers(src_path, a.output, set())
+            _rewrite_local_headers(src_path, a.output, {})
             # Make a newly introduced host header a visible source change.
             # Otherwise Ninja's old depfile still names the original header,
             # and an unchanged .c can keep an object built with its old ABI.
@@ -1900,15 +1905,21 @@ def _rewrite_local_headers(src_path, out_path, seen):
     copy compiles against them and the hardware writes reach bw_ds_ptr;
     otherwise they land in plain memory and the 3D engine never sees them.
     A header on the way to one is copied too.  Returns True when the header
-    at out_path was written."""
+    at out_path was written.  `seen` maps each header already visited to
+    whether it was written, so a header reached twice (sdk_os.h through
+    several others) answers the same both times: answering "not written"
+    the second time removed the copy the first visit had written."""
     src_dir = os.path.dirname(os.path.abspath(src_path))
     out_dir = os.path.dirname(os.path.abspath(out_path))
     wrote_any = False
     for inc in _LOCAL_INCLUDE_RE.findall(_read(src_path)):
         hp = os.path.normpath(os.path.join(src_dir, inc))
-        if hp in seen or not os.path.isfile(hp):
+        if not os.path.isfile(hp):
             continue
-        seen.add(hp)
+        if hp in seen:
+            wrote_any = wrote_any or seen[hp]
+            continue
+        seen[hp] = False                # until written (an include cycle)
         oh = os.path.normpath(os.path.join(out_dir, inc))
         own = _read(hp)
         text = _rewrite_with_defines(own, hp, hp)
@@ -1935,6 +1946,7 @@ def _rewrite_local_headers(src_path, out_path, seen):
                 return m.group(0).replace('"%s"' % m.group(1), '"%s"' % full)
             text = _LOCAL_INCLUDE_RE.sub(_abs, text)
             _write_atomic(oh, text)
+            seen[hp] = True
             wrote_any = True
         elif os.path.isfile(oh) and os.path.normcase(oh) != os.path.normcase(hp):
             # A copy an earlier aletheia revision needed (the header held an
