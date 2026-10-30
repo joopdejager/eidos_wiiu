@@ -737,14 +737,12 @@ static unsigned long long boot_progress(void)
  */
 static u32 io_raw_read(u32 addr, u32 width)
 {
-    u32 v = 0;
-    memcpy(&v, (const void *)bw_io(addr), width);
-    return v;
+    return bw_io_peek(addr, width);
 }
 
 static void io_raw_write(u32 addr, u32 width, u32 v)
 {
-    memcpy((void *)bw_io(addr), &v, width);
+    bw_io_poke(addr, width, v);
 }
 
 /* Which overlays are resident: where the run stands, in the game's terms. */
