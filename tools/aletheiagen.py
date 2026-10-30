@@ -41,8 +41,15 @@ def main():
     with open(os.path.join(root, "layout", "layout.json"), encoding="utf-8") as fh:
         layout = json.load(fh)
     match._REGION_CACHE["regions"] = match.load_regions(layout, extract, overlays=True)
+    have = {r.name for r in match._REGION_CACHE["regions"]}
     for n in todo:
         addr, size, region = gendata.SPECS[n]
+        if region not in have:
+            # The twl region is only there when the extract was decrypted with
+            # the DSi key (aletheia's delink.py --dsi-key); a DS-mode build
+            # does not compile the file that includes it.
+            print("aletheiagen.py: %s skipped: no region %s in %s" % (n, region, extract))
+            continue
         print("aletheiagen.py: %s" % gendata.generate(n, addr, size, region,
                                                       os.path.join(out_dir, n + ".inc")))
 
