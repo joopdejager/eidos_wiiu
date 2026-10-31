@@ -39,3 +39,7 @@ d_021EFA10   2  0   ov170 box menu list (Ent[])
 ov179:0x021B6920   4  0   ov179 cut-demo script (int[])
 ov179:0x021B6964   4  0   ov179 cut-demo script (int[])
 ov179:0x021B69B0   4  0   ov179 cut-demo script (int[])
+# The SDK's sine and cosine table: 4096 (sin, cos) s16 pairs, 16 KiB, which
+# data_objects.json splits into ten objects typed u32 and raw (a u32 swap
+# exchanged every pair's halves)
+FX_SinCosTable_  2  16384  FX_SinCosTable_ (s16 pairs)

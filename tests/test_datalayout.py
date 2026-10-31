@@ -37,6 +37,7 @@ struct Bits { u32 a : 3; u32 b : 29; };
 struct Packed { u8 a; u32 b; } __attribute__((packed));
 struct Fn { void (*cb[2])(int); u16 n; };
 typedef Tmpl TmplAlias;
+void take_tmpl(int which, const struct Tmpl *t);
 """
 
 SOURCE = """
@@ -50,8 +51,11 @@ extern struct Packed d_F;
 extern struct Fn d_G;
 extern const unsigned char d_H[];
 extern u16 d_I[];
+extern const u8 d_J[];
 void f(void)
 {
+    take_tmpl(0, &d_J);
+    take_tmpl(1, (void *)0x02123450);
     Block local;
     local = d_C;
     use((const struct Tmpl *)(&local));
@@ -95,6 +99,12 @@ def main():
         check("function pointers are words",
               lays.get("d_G") and (lays["d_G"].size, lays["d_G"].runs), (12, [(0, 8, 4), (8, 2, 2)]))
         check("a scalar declaration is not a layout", "d_I" in lays, False)
+        check("bytes passed to a struct-pointer parameter take its layout",
+              lays.get("d_J") and lays["d_J"].key(), lays.get("d_A") and lays["d_A"].key())
+        addrs = datalayout.address_layouts(sf)
+        check("a literal address passed to a struct-pointer parameter",
+              {a: l.key() for a, l in addrs.items()},
+              {0x02123450: lays["d_A"].key()} if "d_A" in lays else None)
 
         defs = datalayout.file_defs(src)
         check("block body is opaque", datalayout.opaque(defs, "Block"), True)

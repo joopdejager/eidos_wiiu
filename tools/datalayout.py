@@ -106,6 +106,7 @@ class Defs:
     def __init__(self):
         self.structs = {}       # tag -> body text, or None for a union
         self.typedefs = {}      # name -> ("body", text) | ("union",) | ("type", text)
+        self.protos = {}        # function name -> [parameter type texts]
         self._cache = {}
 
     def add_text(self, text):
@@ -146,6 +147,9 @@ class Defs:
             i = end
         for m in re.finditer(r"\btypedef\s+([^;{}()]*?)\b([A-Za-z_]\w*)\s*;", code):
             self.typedefs.setdefault(m.group(2), ("type", m.group(1)))
+        for m in _PROTO_RE.finditer(code):
+            if m.group(1) not in self.protos:
+                self.protos[m.group(1)] = [_param_type(p) for p in _split_top(m.group(2), ",")]
 
     # -- layouts ----------------------------------------------------------
 
@@ -298,6 +302,102 @@ def defs_for(path, text):
     return d
 
 
+_PROTO_RE = re.compile(
+    r"^[ \t]*(?:extern[ \t]+)?(?:const[ \t]+)?(?:struct[ \t]+)?[A-Za-z_]\w*[\s*]+"
+    r"([A-Za-z_]\w*)\s*\(([^;{}()]*)\)\s*;", re.M)
+_CALL_RE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+_NOT_CALLS = {"if", "while", "for", "switch", "return", "sizeof", "defined", "__attribute__"}
+_CAST_PREFIX = re.compile(
+    r"\(\s*(?:const\s+|volatile\s+)*(?:struct\s+|union\s+)?[A-Za-z_]\w*[\s*]*\)\s*")
+
+
+def _param_type(param):
+    """A parameter's type, its name dropped ("const struct X *p" ->
+    "const struct X *")."""
+    param = param.strip()
+    m = re.match(r"(.*?[\s*])([A-Za-z_]\w*)\s*(\[[^\]]*\])?$", param)
+    if m and m.group(1).strip() and m.group(2) not in _QUALIFIERS:
+        return m.group(1).strip() + ("*" if m.group(3) is not None else "")
+    return param
+
+
+def _match_paren(text, i):
+    """The index just past the parenthesis that closes the one at text[i]."""
+    depth = 0
+    for j in range(i, len(text)):
+        if text[j] == "(":
+            depth += 1
+        elif text[j] == ")":
+            depth -= 1
+            if depth == 0:
+                return j + 1
+    return -1
+
+
+def _arg_target(arg):
+    """What one call argument names: ("name", n) for `n`, `&n` or a cast of
+    either; ("addr", a) for a cast of a literal 0x02xxxxxx address; else
+    None."""
+    a = arg.strip()
+    for _ in range(8):
+        before = a
+        a = a.lstrip("&").strip()
+        if _CAST_PREFIX.match(a):
+            a = _CAST_PREFIX.sub("", a, count=1)
+        if a.startswith("(") and _match_paren(a, 0) == len(a):
+            a = a[1:-1].strip()
+        if a == before:
+            break
+    if re.fullmatch(r"[A-Za-z_]\w*", a):
+        return ("name", a)
+    m = re.fullmatch(r"0x(0?2[0-9A-Fa-f]{6})[uUlL]*", a)
+    return ("addr", int(m.group(1), 16)) if m else None
+
+
+def call_args(code):
+    """[(callee, argument index, target)] for the arguments of every call in
+    `code` (comments stripped) that name data: a name or a literal address
+    (_arg_target)."""
+    out = []
+    for m in _CALL_RE.finditer(code):
+        if m.group(1) in _NOT_CALLS:
+            continue
+        end = _match_paren(code, m.end() - 1)
+        if end < 0:
+            continue
+        for i, arg in enumerate(_split_top(code[m.end():end - 1], ",")):
+            t = _arg_target(arg)
+            if t is not None:
+                out.append((m.group(1), i, t))
+    return out
+
+
+def _arg_types(d, sf):
+    """{target: set of struct type texts} from the parameters the calls in
+    `sf` pass data to: a parameter `const struct DispVram *` says what the
+    object it is given is."""
+    out = {}
+    for callee, i, target in getattr(sf, "call_args", ()):
+        params = d.protos.get(callee)
+        if params is None or i >= len(params):
+            continue
+        t = params[i]
+        if t.count("*") != 1:
+            continue
+        out.setdefault(target, set()).add(t.replace("*", " ").strip())
+    return out
+
+
+def _one_layout(d, type_texts):
+    """The one struct layout a set of type spellings agrees on, or None."""
+    found = {}
+    for t in type_texts:
+        cl = real_struct(d, t)
+        if cl is not None:
+            found[cl.key()] = cl
+    return next(iter(found.values())) if len(found) == 1 else None
+
+
 def _is_block_body(body):
     """A struct whose one member is an array of one scalar type: how the
     decomp spells "these bytes, copied whole" (BgTemplateBlock's u32 w[8]),
@@ -365,8 +465,9 @@ def declared_layouts(sf, data_names):
     """{name: Layout} for one source file's data names: its declared struct
     type where that is a real struct, else, where the declared type is
     opaque, the one struct type the file casts the name (or a local copied
-    from it) to.  `sf` has .path, .decl_types {name: type text},
-    .cast_types {name: set of type texts} and .copies {local: set of names}
+    from it) to, or passes it to a parameter of.  `sf` has .path,
+    .decl_types {name: type text}, .cast_types {name: set of type texts},
+    .copies {local: set of names} and .call_args (call_args)
     (tools/armdata.py, SourceFile)."""
     decls = getattr(sf, "decl_types", None)
     if not decls:
@@ -378,19 +479,32 @@ def declared_layouts(sf, data_names):
     for local, srcs in sf.copies.items():
         for src in srcs:
             casts_of.setdefault(src, set()).update(sf.cast_types.get(local, ()))
+    args = _arg_types(d, sf)
     out = {}
     for name, type_text in decls.items():
         if name not in data_names:
             continue
         lay = real_struct(d, type_text)
         if lay is None and opaque(d, type_text):
-            found = {}
-            for t in casts_of.get(name, ()):
-                cl = real_struct(d, t)
-                if cl is not None:
-                    found[cl.key()] = cl
-            if len(found) == 1:
-                lay = next(iter(found.values()))
+            lay = _one_layout(d, casts_of.get(name, set()) | args.get(("name", name), set()))
         if lay is not None:
             out[name] = lay
+    return out
+
+
+def address_layouts(sf):
+    """{address: Layout} for the literal addresses one source file passes to
+    a function whose parameter is a struct pointer
+    (`BG_SYS_SetVramBanks((void *)0x021B68F0)`, a const struct DispVram *),
+    when the calls agree on one struct.  The caller keeps only addresses
+    where its region has a data object (tools/armdata.py, layout_runs)."""
+    if not getattr(sf, "call_args", None):
+        return {}
+    d = file_defs(sf.path)
+    out = {}
+    for target, types in _arg_types(d, sf).items():
+        if target[0] == "addr":
+            lay = _one_layout(d, types)
+            if lay is not None:
+                out[target[1]] = lay
     return out

@@ -324,6 +324,9 @@ class SourceFile:
         for am in _COPY_RE.finditer(code):
             if am.group(2) in self.decl_types:
                 self.copies.setdefault(am.group(1), set()).add(am.group(2))
+        import datalayout
+        self.call_args = [c for c in datalayout.call_args(code)
+                          if c[2][0] == "addr" or c[2][1] in self.decl_types]
         for dm in _EXTERN_DECL_RE.finditer(code):
             w = decl_width(dm.group(1))
             if w is not None:
@@ -717,7 +720,8 @@ def data_swap_runs(objects, reloc_words, sources, names, region):
 def layout_runs(objects, sources, names, skip):
     """Runs from struct layouts (tools/datalayout.py): where a source
     declares a name as a struct (or as bytes it casts to one), that layout,
-    tiled over the object at the address, replaces data_objects.json's
+    tiled over the object at the address (or at a literal address the
+    source passes to a struct-pointer parameter), replaces data_objects.json's
     numeric or raw guess there.  The metadata's evidence-based kinds
     (struct, pointer_table, string) and the addresses in `skip` keep theirs.
     Two layouts at one address (two declarations of one object) combine
@@ -726,12 +730,15 @@ def layout_runs(objects, sources, names, skip):
     other pair gives none.  Returns the runs and the addresses of the
     objects they replace."""
     import datalayout
+    starts = sorted((int(o["addr"], 16), o) for o in objects)
+    at = dict(starts)
     by_addr = {}
     for sf in sources:
         for name, lay in datalayout.declared_layouts(sf, names).items():
             by_addr.setdefault(names[name]["addr"], {})[lay.key()] = lay
-    starts = sorted((int(o["addr"], 16), o) for o in objects)
-    at = dict(starts)
+        for addr, lay in datalayout.address_layouts(sf).items():
+            if addr in at:                  # a literal address: this region's object
+                by_addr.setdefault(addr, {})[lay.key()] = lay
     runs, over = [], set()
     for addr, lays in sorted(by_addr.items()):
         lay = _combined_layout(list(lays.values()))
@@ -774,17 +781,22 @@ def declared_runs(objects, sources, names, region):
     """Runs for what the sources declare, over `objects` (data_objects.json's,
     of one region), the SourceFiles that name them and `names` (name -> a
     dict with its "addr" and, if known, "size").  Struct layouts first
-    (layout_runs).  Then the objects the metadata types only as bytes (its
-    fallback when nothing else showed, `numeric` u8 or `raw`) whose name a
-    build source declares as a wider scalar or pointer: GXi_DmaId is
-    `extern u32 GXi_DmaId;` and four u8 in data_objects.json; the width is
-    taken only when every declaration of every name at the address agrees.
-    tools/armdata_widths.txt wins over both.  Returns the runs and the
-    addresses of the objects whose metadata typing they replace."""
+    (layout_runs).  Then the objects the metadata types as raw or numeric
+    whose name a build source declares as a scalar or pointer of another
+    width: GXi_DmaId is `extern u32 GXi_DmaId;` and four u8 in
+    data_objects.json, FX_SinCosTable_ s16 pairs and u32 there; the width is
+    taken only when every declaration of every name at the address agrees,
+    since the matched code's loads come from those declarations.
+    tools/armdata_widths.txt wins over both, over every object that starts
+    inside its extent.  Returns the runs and the addresses of the objects
+    whose metadata typing they replace."""
+    elem_width = {"u8": 1, "s8": 1, "u16": 2, "s16": 2, "u32": 4, "s32": 4}
     weak = {}
     for o in objects:
-        if o["kind"] == "raw" or (o["kind"] == "numeric" and o.get("elem") in ("u8", "s8")):
-            weak[int(o["addr"], 16)] = o["size"]
+        if o["kind"] == "raw":
+            weak[int(o["addr"], 16)] = (o["size"], 1)
+        elif o["kind"] == "numeric":
+            weak[int(o["addr"], 16)] = (o["size"], elem_width.get(o.get("elem"), 0))
     widths = {}
     struct_widths = {}
     for sf in sources:
@@ -823,19 +835,22 @@ def declared_runs(objects, sources, names, region):
     for addr, ws in widths.items():
         if addr in over:
             continue
-        size = weak.get(addr)
-        if size is None or len(ws) != 1:
+        if addr not in weak or len(ws) != 1:
             continue
+        size, typed = weak[addr]
         w = ws.pop()
-        if w in (2, 4, 8) and addr % min(w, 4) == 0 and size >= w:
+        if w in (2, 4, 8) and w != typed and addr % min(w, 4) == 0 and size >= w:
             out.append((addr, size - size % w, w))
+            over.add(addr)
     # tools/armdata_widths.txt: objects their consumer reads wider.
     for addr, (f, name_size) in listed.items():
         w = int(f[1], 0)
         size = int(f[2], 0) if len(f) > 2 and f[2].isdigit() and int(f[2], 0) else (
             sizes.get(addr) or name_size or w)
-        out = [r for r in out if r[0] != addr]
-        out.append((addr, size - size % w, w))
+        size -= size % w
+        out = [r for r in out if not addr <= r[0] < addr + size]
+        out.append((addr, size, w))
+        over.update(a for a in sizes if addr <= a < addr + size)
         over.add(addr)
     return out, over
 

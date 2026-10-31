@@ -8,12 +8,17 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `29bd76496c1b406e0052f018fbd68e1e959068ca`
+- Revision: `eca44b3728cec2f7816bb979658c611947c3c9a3`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-10-30 21:43:40 +0000
-- Subject: NNSSndArcWaveArcInfo's file id is the word's low 24 bits on a big-endian host
+- Date: 2026-10-31 01:40:22 +0000
+- Subject: The title demo's bitmaps are turned into a big-endian host's order
 
-The step from `2fdfac0df`: the wave archive info word's bit-fields
+The step from `29bd76496`: CDEMO_SCENE_LoadScreenBlock turns the title
+demo's direct-colour bitmap (u16 pixels in the DS's order) into a
+big-endian host's order before copying it to VRAM, which holds the host's.
+The DS source is unchanged (the plain copy stays under `__MWERKS__`).
+
+The step before, from `2fdfac0df`: the wave archive info word's bit-fields
 (fileId:24, isIndividual:1, reserved:7) are declared the other way round
 on a big-endian host, whose compiler fills bit-fields from the high bit, so
 fileId is the word's low 24 bits there too. The DS source is unchanged (the

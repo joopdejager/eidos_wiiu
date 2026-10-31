@@ -443,7 +443,8 @@ class Scan:
                                             path=path,
                                             decl_types=dict(sf.decl_types),
                                             cast_types=dict(sf.cast_types),
-                                            copies=dict(sf.copies))
+                                            copies=dict(sf.copies),
+                                            call_args=list(sf.call_args))
 
     def _parse_symbols(self, text):
         in_block = False
