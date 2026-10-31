@@ -222,8 +222,9 @@ static inline void bw_mem_wr32(u8 *p, u32 v)
  *   1  NARC framing
  *   2  and message banks (a/0/0/2, a/0/0/3)
  *   3  and the sound archive (wb_sound_data.sdat)
+ *   4  and the fonts (a/0/2/3)
  */
-#define BW_BYTE_ORDER_MARK "big-endian 3"
+#define BW_BYTE_ORDER_MARK "big-endian 4"
 
 #define bw_dr_rd16 bw_mem_rd16
 #define bw_dr_rd32 bw_mem_rd32

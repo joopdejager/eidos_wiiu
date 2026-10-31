@@ -24,6 +24,8 @@
  *   wb_sound_data.sdat, and any SDAT: the sound archive's structure
  *   (sdk/sdat_order.h, bw_sdat_to_host).
  *
+ *   a/0/2/3: the fonts (install/font_order.c, bw_nftr_to_host).
+ *
  *   a/0/0/2, a/0/0/3, and member 1 of a/1/1/1..a/1/1/4 (the musicals'
  *   stages): message banks (src/game/arm9/msgdata.c), read by
  *   MSGDATA_LoadFileHeader, MSGDATA_LoadBank and MSGDATA_ReadUnits with
@@ -276,6 +278,8 @@ static const struct {
     { "a/1/1/2", 1, bw_msg_to_host, "malformed message bank" },
     { "a/1/1/3", 1, bw_msg_to_host, "malformed message bank" },
     { "a/1/1/4", 1, bw_msg_to_host, "malformed message bank" },
+    /* The fonts (arc id 0x17), which GF_FONT reads in pieces. */
+    { "a/0/2/3", -1, bw_nftr_to_host, "malformed font" },
 };
 
 

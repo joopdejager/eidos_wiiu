@@ -13,6 +13,7 @@ done. A little-endian host runs none of it.
 | The ARM9 image's and each overlay's data | `sdk/armdata.c` `swap_to_host`, runs from `tools/armdata.py` / `tools/ovlink.py` (`docs/armdata.md`, "Byte order") | at load |
 | A NARC's framing | `install/byteorder.c` | extraction |
 | Message banks | `install/byteorder.c` (`bw_msg_to_host`) | extraction |
+| Fonts (NFTR, `a/0/2/3`) | `install/font_order.c` (`bw_nftr_to_host`) | extraction (GF_FONT reads them in pieces) |
 | The sound archive's structure | `sdk/sdat_order.c` (`docs/audio.md`, "Byte order on a big-endian host") | extraction; a mod's appended sound files at merge |
 | NITRO 2D files (NCLR, NCGR, NSCR, NCER, NANR, NMCR, NMAR) | `sdk/g2d_order.c`, from the port's `NNS_G2dFindBinaryBlock` | the first time the game looks into one |
 | The title demo's direct-colour bitmaps | `src/game/ov179/cdemo_scene.c` (host branch) | at load |

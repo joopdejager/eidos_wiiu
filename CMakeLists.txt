@@ -1542,6 +1542,7 @@ add_library(eidos_install STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/install/ndsrom.c
     ${CMAKE_CURRENT_SOURCE_DIR}/install/fsutil.c
     ${CMAKE_CURRENT_SOURCE_DIR}/install/byteorder.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/install/font_order.c
     ${CMAKE_CURRENT_SOURCE_DIR}/sdk/sdat_order.c
 )
 target_include_directories(eidos_install PUBLIC

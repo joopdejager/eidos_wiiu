@@ -145,9 +145,81 @@ static void test_msg(void)
     BW_CHECK_EQ("msg: language past the file", bw_msg_to_host(p, n), -1);
 }
 
+/* ---- a font: info, glyph header, width table, two character maps ---- */
+
+/* An odd-sized glyph block puts the width table at an odd offset, as in
+ * a/0/2/3's fifth font, and the last map's link points past the file. */
+static u32 make_font(u8 *p)
+{
+    u32 glyph = 0x34, width = 0x2C + 0x17 + 8, map1, map2, n;
+
+    memset(p, 0, 160);
+    memcpy(p, "RTFN", 4);
+    bw_wr16(p + 4, 0xFEFF);
+    bw_wr16(p + 12, 16);
+    bw_wr16(p + 14, 5);
+    memcpy(p + 0x10, "FNIF", 4);
+    bw_wr32(p + 0x14, 28);
+    p[0x19] = 15;                       /* line height */
+    bw_wr16(p + 0x1A, 0x0102);          /* null glyph index */
+    memcpy(p + 0x2C, "PLGC", 4);
+    bw_wr32(p + 0x30, 0x17);            /* odd: 8 + 8-byte header + 7 bytes */
+    bw_wr16(p + glyph + 2, 0x0123);     /* cell size */
+    memcpy(p + width - 8, "HDWC", 4);
+    bw_wr32(p + width - 4, 24);
+    bw_wr32(p + width + 4, 0x10);
+    bw_wr32(p + width + 8, 0x504);
+    bw_wr32(p + width + 12, 0x704);
+    map1 = width + 16 + 8;
+    memcpy(p + map1 - 8, "PAMC", 4);
+    bw_wr32(p + map1 - 4, 24);
+    bw_wr16(p + map1, 0x20);            /* direct: 0x20..0x7E from glyph 5 */
+    bw_wr16(p + map1 + 2, 0x7E);
+    bw_wr16(p + map1 + 4, 0);
+    bw_wr16(p + map1 + 12, 5);
+    map2 = map1 + 16 + 8;
+    bw_wr32(p + map1 + 8, map2);
+    memcpy(p + map2 - 8, "PAMC", 4);
+    bw_wr32(p + map2 - 4, 28);
+    bw_wr16(p + map2 + 2, 0xFFFF);      /* scan: one (code, glyph) pair */
+    bw_wr16(p + map2 + 4, 2);
+    bw_wr16(p + map2 + 12, 1);
+    bw_wr16(p + map2 + 14, 0x3042);
+    bw_wr16(p + map2 + 16, 0x0211);
+    n = map2 + 20;
+    bw_wr32(p + map2 + 8, n + 8);       /* past the file, as the game's are */
+    bw_wr32(p + 0x18 + 8, glyph);
+    bw_wr32(p + 0x18 + 12, width);
+    bw_wr32(p + 0x18 + 16, map1);
+    bw_wr32(p + 8, n);
+    return n;
+}
+
+static void test_font(void)
+{
+    u8 p[160];
+    u32 n = make_font(p), width = 0x2C + 0x17 + 8, map1 = width + 24, map2 = map1 + 24;
+
+    BW_CHECK_EQ("font: turned", bw_nftr_to_host(p, n), 1);
+    BW_CHECK_EQ("font: null glyph", bw_dr_rd16(p + 0x1A), 0x0102);
+    BW_CHECK_EQ("font: line height stays a byte", p[0x19], 15);
+    BW_CHECK_EQ("font: width offset", bw_dr_rd32(p + 0x18 + 12), width);
+    BW_CHECK_EQ("font: cell size", bw_dr_rd16(p + 0x34 + 2), 0x0123);
+    BW_CHECK_EQ("font: width table at an odd offset", bw_dr_rd32(p + width + 8), 0x504);
+    BW_CHECK_EQ("font: first map's end", bw_dr_rd16(p + map1 + 2), 0x7E);
+    BW_CHECK_EQ("font: first map's glyph", bw_dr_rd16(p + map1 + 12), 5);
+    BW_CHECK_EQ("font: scan pair's glyph", bw_dr_rd16(p + map2 + 16), 0x0211);
+    memcpy(p, "RLCN", 4);
+    BW_CHECK_EQ("font: a palette member is left alone", bw_nftr_to_host(p, n), 0);
+    make_font(p);
+    bw_wr16(p + map1 + 4, 7);           /* no such mapping method */
+    BW_CHECK_EQ("font: unknown map method", bw_nftr_to_host(p, n), -1);
+}
+
 int main(void)
 {
     test_narc();
     test_msg();
+    test_font();
     BW_REPORT("test_byteorder");
 }
