@@ -101,19 +101,19 @@ static void oam_set(int engine, u32 i, u16 a0, u16 a1, u16 a2)
 {
     u8 *e = t_oam + (u32)engine * 0x400u + i * 8u;
 
-    bw_mem_wr16(e, a0);
-    bw_mem_wr16(e + 2, a1);
-    bw_mem_wr16(e + 4, a2);
+    bw_wr16(e, a0);                     /* OAM holds the DS's order */
+    bw_wr16(e + 2, a1);
+    bw_wr16(e + 4, a2);
 }
 
 static void oam_affine(int engine, u32 group, s16 pa, s16 pb, s16 pc, s16 pd)
 {
     u8 *g = t_oam + (u32)engine * 0x400u + group * 32u;
 
-    bw_mem_wr16(g + 6, (u16)pa);
-    bw_mem_wr16(g + 14, (u16)pb);
-    bw_mem_wr16(g + 22, (u16)pc);
-    bw_mem_wr16(g + 30, (u16)pd);
+    bw_wr16(g + 6, (u16)pa);
+    bw_wr16(g + 14, (u16)pb);
+    bw_wr16(g + 22, (u16)pc);
+    bw_wr16(g + 30, (u16)pd);
 }
 
 /*

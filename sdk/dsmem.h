@@ -65,6 +65,16 @@ void *bw_ds_try_ptr(u32 addr);
  */
 u32 bw_ds_addr_of(const void *host);
 
+/*
+ * Whether host memory at `host` is OAM, which a big-endian host keeps in the
+ * DS's byte order: the game's views of an OAM entry (GXOamAttr and its
+ * kin, tools/sso_types.txt) are stored that way, so the u16 halves, the
+ * attr01/attr23 words and the bit-fields agree, and a fill of OAM writes
+ * its value the same way (sdk/mi.c, sdk/mi_dma.c).  The compositor reads
+ * OAM little-endian.
+ */
+int bw_host_in_oam(const void *host);
+
 /* Encode a pointer or an already numeric offset for a 32-bit DS protocol.
  * A native pointer must name backed or registered memory; never truncate it. */
 u32 bw_ds_wire_addr(uintptr_t value);

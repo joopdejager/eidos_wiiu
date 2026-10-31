@@ -853,7 +853,8 @@ static int build_objs(Engine *e)
 
     for (i = 0; i < 128u; i++) {
         const u8 *ent = oam + i * 8u;
-        u16 a0 = bw_mem_rd16(ent), a1 = bw_mem_rd16(ent + 2), a2 = bw_mem_rd16(ent + 4);
+        /* OAM holds the DS's order on every host (sdk/dsmem.h, bw_host_in_oam). */
+        u16 a0 = bw_rd16(ent), a1 = bw_rd16(ent + 2), a2 = bw_rd16(ent + 4);
         int affine = (a0 & 0x100u) != 0;
         u32 mode = ((u32)a0 >> 10) & 3u;
         u32 shape = (u32)a0 >> 14;
@@ -884,10 +885,10 @@ static int build_objs(Engine *e)
             G2dAffine m;
             int dbl = (a0 & 0x200u) != 0;
 
-            m.pa = (s16)bw_mem_rd16(grp + 6);
-            m.pb = (s16)bw_mem_rd16(grp + 14);
-            m.pc = (s16)bw_mem_rd16(grp + 22);
-            m.pd = (s16)bw_mem_rd16(grp + 30);
+            m.pa = (s16)bw_rd16(grp + 6);
+            m.pb = (s16)bw_rd16(grp + 14);
+            m.pc = (s16)bw_rd16(grp + 22);
+            m.pd = (s16)bw_rd16(grp + 30);
             g2d_obj_affine_size(w, h, dbl, &cw, &ch);
             g2d_obj_affine_render(src, w, h, &m, dbl, canvas);
         } else {

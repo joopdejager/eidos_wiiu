@@ -1090,6 +1090,11 @@ static long host_offset(uintptr_t h, const void *base, size_t size)
     return -1;
 }
 
+int bw_host_in_oam(const void *host)
+{
+    return host_offset((uintptr_t)host, g_oam, BW_DS_OAM_SIZE) >= 0;
+}
+
 u32 bw_ds_wire_addr(uintptr_t value)
 {
     u32 address;

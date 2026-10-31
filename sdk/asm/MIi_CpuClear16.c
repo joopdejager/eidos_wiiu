@@ -23,6 +23,12 @@ void MIi_CpuClear16(u16 data, void *destp, u32 size)
     u8 *d = (u8 *)destp;
     u32 off;
 
+    if (BW_HOST_BIG_ENDIAN && bw_host_in_oam(d)) {
+        for (off = 0; (s32)off < (s32)size; off += 2) {
+            bw_wr16(d + off, data);         /* OAM holds the DS's order */
+        }
+        return;
+    }
     for (off = 0; (s32)off < (s32)size; off += 2) {
         bw_mem_wr16(d + off, data);
     }

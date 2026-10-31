@@ -169,10 +169,9 @@ def _sso_types(src, name):
         spans += _definition_span(src, t)
     if not spans:
         return src
-    shown = name.replace("\\", "/").replace('"', '\\"')
     for st, en in sorted(set(spans), reverse=True):
-        first = src.count("\n", 0, st) + 1
-        after = src.count("\n", 0, en) + 2
+        first, shown = _line_at(src, st, name)
+        after = _line_at(src, en, name)[0] + 1
         src = (src[:st]
                + "#pragma scalar_storage_order little-endian\n#line %d \"%s\"\n"
                % (first, shown)
@@ -181,6 +180,29 @@ def _sso_types(src, name):
                % (after, shown)
                + src[en:])
     return src
+
+
+_LINE_DIRECTIVE_RE = re.compile(r'^[ \t]*#[ \t]*line[ \t]+(\d+)(?:[ \t]+"((?:[^"\\]|\\.)*)")?', re.M)
+
+
+def _line_at(src, pos, name):
+    """(line, file) a compiler gives the line holding src[pos]: after the
+    last #line before it (a cut copy's own), else counted from the end of
+    the header constants _rewrite_with_defines puts in front, else from 1."""
+    last = None
+    for m in _LINE_DIRECTIVE_RE.finditer(src, 0, pos):
+        last = m
+    if last is not None:
+        nl = src.find("\n", last.end())
+        line = int(last.group(1)) + src.count("\n", nl + 1, pos)
+        shown = last.group(2)
+    else:
+        start = src.find(_PREFIX_END)
+        start = 0 if start < 0 or start > pos else start + len(_PREFIX_END)
+        line, shown = src.count("\n", start, pos) + 1, None
+    if shown is None:
+        shown = name.replace("\\", "/").replace('"', '\\"')
+    return line, shown
 
 QUALIFIERS = {"const", "volatile", "restrict", "__restrict", "__volatile__"}
 # Identifiers that cannot end a type name; a parenthesised group made of

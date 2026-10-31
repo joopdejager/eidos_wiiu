@@ -9,7 +9,9 @@
 # build's sources (tools/armdata.py, declared_swap_runs).  An object that is
 # declared as bytes too, and that its consumer reads as wider words, is
 # listed here: the name, the width, the bytes it covers (0: the object's
-# whole extent), then why.  An entry here wins over both.  An object no
+# whole extent), then why.  Width 1 keeps the bytes as they are: an image
+# of memory the host holds in the DS's order (OAM).  An entry here wins over
+# both.  An object no
 # source names (reached only through a pointer) is listed as region:address,
 # arm9:0xXXXXXXXX or ovNNN:0xXXXXXXXX (overlays share their windows), where
 # a data object of that region starts.
@@ -43,3 +45,7 @@ ov179:0x021B69B0   4  0   ov179 cut-demo script (int[])
 # data_objects.json splits into ten objects typed u32 and raw (a u32 swap
 # exchanged every pair's halves)
 FX_SinCosTable_  2  16384  FX_SinCosTable_ (s16 pairs)
+# GFL_NET_WM_ICON_ClearOam copies this table into OAM as it is: an image of
+# four hidden entries, and OAM holds the DS's order (sdk/dsmem.h,
+# bw_host_in_oam), so its words are not turned
+wm_icon_HiddenOam    1  0   four hidden OAM entries, copied into OAM byte for byte

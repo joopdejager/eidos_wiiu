@@ -19,6 +19,7 @@
 
 #include <string.h>
 
+#include "dsmem.h"
 #include "port.h"
 
 void MI_CpuCopy16(const void *src, void *dst, u32 size)
@@ -41,6 +42,12 @@ void MI_CpuFill32(void *dst, u32 value, u32 size)
     u8 *p = (u8 *)dst;
     u32 i;
 
+    if (BW_HOST_BIG_ENDIAN && bw_host_in_oam(p)) {
+        for (i = 0; i + 4 <= size; i += 4) {
+            bw_wr32(p + i, value);          /* OAM holds the DS's order */
+        }
+        return;
+    }
     for (i = 0; i + 4 <= size; i += 4) {
         bw_mem_wr32(p + i, value);
     }

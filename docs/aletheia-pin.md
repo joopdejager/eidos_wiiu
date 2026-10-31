@@ -8,12 +8,19 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `b1f6af01c55e1ffc90b2a522f53cb6dba0982f99`
+- Revision: `e2acc490a6a1d4a6b4821f32e8a94b6152d14113`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-10-31 08:39:08 +0000
-- Subject: Host fixes and visible types for the title's 3D on a big-endian host
+- Date: 2026-10-31 11:42:26 +0000
+- Subject: Host branches for the OAM views a big-endian host stores in the DS's order
 
-The step from `eca44b372`: FX_DivAsync writes each divider register at its
+The step from `b1f6af01c`: a big-endian host keeps the OAM entry views in
+the DS's byte order (tools/sso_types.txt), so CLACT_EntryOam,
+LoadOneAffine_, ResetOam_, NNS_G2dResetOamManagerBuffer and
+GFL_NET_WM_ICON_Delete get host branches that reach the entries through
+their own view instead of an address of a field or a raw host-order store.
+The DS source is unchanged (all under `__MWERKS__`).
+
+The step before, from `eca44b372`: FX_DivAsync writes each divider register at its
 own address on the host (an index off DIVCNT cannot place a half of a
 64-bit register the port keeps as a host-order number), and
 NNSi_G3dAnmGetTexSRTRotData reads a rotation key as the two halfwords the

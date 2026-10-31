@@ -931,7 +931,8 @@ def declared_runs(objects, sources, names, region, data_relocs=None):
             sizes.get(addr) or name_size or w)
         size -= size % w
         out = [r for r in out if not addr <= r[0] < addr + size]
-        out.append((addr, size, w))
+        if w > 1:
+            out.append((addr, size, w))     # 1: bytes the host must not turn
         over.update(a for a in sizes if addr <= a < addr + size)
         over.add(addr)
     return out, over

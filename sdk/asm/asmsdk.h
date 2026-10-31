@@ -30,6 +30,7 @@
 #define BW_PORT_ASMSDK_H
 
 #include "../types.h"
+#include "../dsmem.h"
 
 #ifdef __cplusplus
 extern "C" {

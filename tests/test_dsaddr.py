@@ -779,5 +779,25 @@ class Width(unittest.TestCase):
         self.assertIn("bw_ds_ptr_w(0x04000100u, 4)", out)
 
 
+
+class SsoLines(unittest.TestCase):
+    """--sso wraps a listed type's definition in pragmas and #line
+    directives that keep the compiler's line numbers: after a cut copy's own
+    #line, and not counting the header constants put in front."""
+
+    def test_after_a_line_directive(self):
+        src = ('int x;\n#line 100 "orig.c"\nint y;\nstruct LzHeader {\n'
+               '  unsigned v;\n};\nint z;\n')
+        out = dsaddr._sso_types(src, "unit.c")
+        self.assertIn('#line 101 "orig.c"\nstruct LzHeader', out)
+        self.assertIn('#line 104 "orig.c"\nint z;', out)
+
+    def test_header_constants_not_counted(self):
+        src = (dsaddr._PREFIX_BEGIN + "#define A 1\n" + dsaddr._PREFIX_END
+               + "int x;\nstruct LzHeader {\n  unsigned v;\n};\n")
+        out = dsaddr._sso_types(src, "unit.c")
+        self.assertIn('#line 2 "unit.c"\nstruct LzHeader', out)
+
+
 if __name__ == "__main__":
     main()

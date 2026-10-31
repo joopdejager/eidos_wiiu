@@ -28,3 +28,7 @@ OSiOwnerRtc          the RTC offset in those settings
 LzHeader             ARC_UTIL_LoadMember*'s view of an LZ member's header word (type | size << 8)
 CompHeader           CLACT_LoadArchiveData's view of the same word
 BgTileSource         BG_SYS_PushTileSource's view of a compressed tile source's header word
+GXOamAttr            an OAM entry: attr0..attr3, the attr01/attr23 words and the bit-fields all view it; OAM holds the DS's order (sdk/dsmem.h, bw_host_in_oam)
+OamAttr              clact.c's and nns_g2d_renderer.c's own copies of that view (attr01 and its bit-fields)
+OamEntry             double3Ddisp.c's view of an entry (two words, or attr01 and attr2, attr3)
+GXOamAffine          the affine parameters, the fourth halfword of four entries, loaded into OAM

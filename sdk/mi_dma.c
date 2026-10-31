@@ -139,6 +139,21 @@ static void bw_dma_run(uintptr_t src, uintptr_t dest, u32 ctrl)
     if (count == 0) {
         count = 0x200000u;          /* 0 means the maximum */
     }
+    if (BW_HOST_BIG_ENDIAN && ss == 0 && bw_host_in_oam(d)) {
+        /* A fill of OAM, which holds the DS's order: the value the fill
+         * register holds natively, stored little-endian. */
+        u32 v = unit == 4u ? bw_mem_rd32(s) : bw_mem_rd16(s);
+
+        for (i = 0; i < count; i++) {
+            if (unit == 4u) {
+                bw_wr32(d, v);
+            } else {
+                bw_wr16(d, (u16)v);
+            }
+            d += ds;
+        }
+        return;
+    }
     for (i = 0; i < count; i++) {
         memmove(d, s, unit);
         d += ds;

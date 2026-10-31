@@ -63,6 +63,17 @@ names each register by its own address.
 views of it are in `tools/sso_types.txt`), PCM and ADPCM samples, sequence
 bytecode, and the hardware words `tools/sso_types.txt` lists.
 
+**OAM holds the DS's order** on a big-endian host.  The game views an
+entry as four u16 halves, as two u32 words (`attr01`, `attr23`) and as
+bit-fields over those words, and only the DS's order makes the three
+agree.  So the views are stored that way (`GXOamAttr`, its copies
+`OamAttr` and `OamEntry`, and `GXOamAffine` are in `tools/sso_types.txt`),
+the compositor reads OAM little-endian, a fill of OAM writes its value
+little-endian (`bw_host_in_oam`, `sdk/mi.c`, `sdk/mi_dma.c`), and the
+ARM9 data's image of hidden entries (`wm_icon_HiddenOam`) is not turned.
+The few places that take a field's address or store raw words into an
+entry have host branches in the decomp.
+
 **VRAM and palette RAM** hold the host's order: the game's own stores
 there are native, and the palettes and screens it copies in come from
 turned NITRO files. Raw 16-bit data copied in from an archive member with
