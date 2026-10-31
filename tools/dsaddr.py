@@ -792,9 +792,12 @@ def _enclosing_call(m: str, off: int):
 _VOID_PTR_RE = re.compile(r"\s*(?:(?:const|volatile)\s+)*void\s*\*\s*(?:const\s*)?")
 # A prototype: a statement of type words, the name, a parameter list (no
 # call: nothing but type words may come before the name).
-_PROTO_DECL_RE = re.compile(r"(?:^|[;{}])\s*((?:[A-Za-z_]\w*[\s*]+)+)([A-Za-z_]\w*)\s*"
+_PROTO_DECL_RE = re.compile(r"(?:^|(?<=[;{}]))\s*((?:[A-Za-z_]\w*[\s*]+)+)([A-Za-z_]\w*)\s*"
                             r"\(([^;{}()]*)\)\s*;")
 _NOT_RETURN_TYPE = {"return", "else", "do", "case", "goto", "sizeof"}
+_SCALAR_WORDS = {"char", "short", "int", "long", "unsigned", "signed",
+                 "u8", "s8", "u16", "s16", "u32", "s32", "vu8", "vs8", "vu16",
+                 "vs16", "vu32", "vs32", "fx16", "fx32"}
 # A pointer parameter: type words, stars, an optional name.
 _PTR_PARAM_RE = re.compile(r"((?:[A-Za-z_]\w*\s+)*[A-Za-z_]\w*\s*\*[\s*]*)(?:[A-Za-z_]\w*)?\s*$")
 
@@ -817,8 +820,8 @@ class _Protos:
     def get(self, name):
         if self.table is None:
             self.table = {}
-            for name, params in _prototypes(self.m):
-                self.table.setdefault(name, params.split(","))
+            for fn, params in _prototypes(self.m):
+                self.table.setdefault(fn, params.split(","))
         return self.table.get(name)
 
 
@@ -831,7 +834,11 @@ def _param_width(m, off, protos):
     if not params or call[1] >= len(params):
         return "4"
     pm = _PTR_PARAM_RE.match(params[call[1]].strip())
-    if pm is None or _VOID_PTR_RE.fullmatch(pm.group(1)):
+    if pm is None or pm.group(1).count("*") != 1:
+        return "4"
+    # Only a scalar says a width (a struct may be incomplete in the unit).
+    words = set(re.findall(r"[A-Za-z_]\w*", pm.group(1))) - {"const", "volatile"}
+    if not words or not words <= _SCALAR_WORDS:
         return "4"
     return "sizeof(*(%s)0)" % " ".join(pm.group(1).split())
 

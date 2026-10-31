@@ -763,10 +763,20 @@ class Width(unittest.TestCase):
         dsaddr.WIDTH = True
         try:
             out = dsaddr.rewrite("void Set(int b, volatile u16 *reg);\n"
+                                 "void Other(struct Task *t);\n"
                                  + BODY % "Set(0, (void *)0x0400006C);", "x.c")[0]
         finally:
             dsaddr.WIDTH = old
         self.assertIn("bw_ds_ptr_w(0x0400006Cu, sizeof(*(volatile u16 *)0))", out)
+        # a struct parameter (maybe incomplete in the unit): a word
+        old = dsaddr.WIDTH
+        dsaddr.WIDTH = True
+        try:
+            out = dsaddr.rewrite("void Run(struct Task *t);\n"
+                                 + BODY % "Run((void *)0x04000100);", "x.c")[0]
+        finally:
+            dsaddr.WIDTH = old
+        self.assertIn("bw_ds_ptr_w(0x04000100u, 4)", out)
 
 
 if __name__ == "__main__":
