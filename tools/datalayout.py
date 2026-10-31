@@ -491,12 +491,15 @@ def opaque(d, type_text):
 
 def real_struct(d, type_text):
     """The layout of a declaration's type when it is a struct the module lays
-    out for certain, is not a block stand-in, and has a multi-byte field."""
+    out for certain and is not a block stand-in.  A struct of byte fields
+    counts too: its runs are none, and the metadata's guess of words over it
+    goes (gStartMenuWindowTemplates, {u8 bgId, x, y, width, height,
+    palette}[14], which data_objects.json has as 21 u32)."""
     words = [w for w in re.findall(r"[A-Za-z_]\w*", type_text) if w not in _QUALIFIERS]
     if "*" in type_text or not words or words[-1] in SCALARS or opaque(d, type_text):
         return None
     lay = d.type_layout(type_text)
-    return lay if lay is not None and lay.runs and lay.size > 0 else None
+    return lay if lay is not None and lay.size > 0 else None
 
 
 _FILE_DEFS = {}

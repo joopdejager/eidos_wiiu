@@ -446,6 +446,7 @@ class Scan:
                                             copies=dict(sf.copies),
                                             call_args=list(sf.call_args),
                                             decl_extent=dict(sf.decl_extent),
+                                            decl_count=dict(sf.decl_count),
                                             subscripted=set(sf.subscripted))
 
     def _parse_symbols(self, text):

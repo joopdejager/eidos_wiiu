@@ -8,12 +8,16 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `e2acc490a6a1d4a6b4821f32e8a94b6152d14113`
+- Revision: `b9e85f5dfc4717b78d0ae3b882fdc96b8afdbcc8`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-10-31 11:42:26 +0000
-- Subject: Host branches for the OAM views a big-endian host stores in the DS's order
+- Date: 2026-10-31 20:18:07 +0000
+- Subject: Declare the start menu's row table with its eight rows
 
-The step from `b1f6af01c`: a big-endian host keeps the OAM entry views in
+The step from `e2acc490a`: gStartMenuRowInfo is declared with the eight
+rows STARTMENU_LoadRowBuffers reads, so a big-endian host's data typing
+turns them all.  A declaration only; no code changes.
+
+The step before, from `b1f6af01c`: a big-endian host keeps the OAM entry views in
 the DS's byte order (tools/sso_types.txt), so CLACT_EntryOam,
 LoadOneAffine_, ResetOam_, NNS_G2dResetOamManagerBuffer and
 GFL_NET_WM_ICON_Delete get host branches that reach the entries through
