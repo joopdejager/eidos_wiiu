@@ -45,6 +45,7 @@
 
 #include "bmap.h"
 #include "bmap_gimmick.h"
+#include "g3d_order.h"
 #include "port.h"
 #include "types.h"
 
@@ -1179,6 +1180,7 @@ static int arc_load(Ctx *c, const char *path, u32 idx, Blob *out)
         blob_free(out);
         return -1;
     }
+    bw_g3d_member_to_ds(out->p, (u32)n);  /* this reader reads the DS's order */
     out->n = (size_t)n;
     return 0;
 }

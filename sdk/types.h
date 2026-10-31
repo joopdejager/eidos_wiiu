@@ -223,8 +223,10 @@ static inline void bw_mem_wr32(u8 *p, u32 v)
  *   2  and message banks (a/0/0/2, a/0/0/3)
  *   3  and the sound archive (wb_sound_data.sdat)
  *   4  and the fonts (a/0/2/3)
+ *   5  and the 3D files (models, textures, animations; sdk/g3d_order.h)
+ *      and the camera animations (ICA)
  */
-#define BW_BYTE_ORDER_MARK "big-endian 4"
+#define BW_BYTE_ORDER_MARK "big-endian 5"
 
 #define bw_dr_rd16 bw_mem_rd16
 #define bw_dr_rd32 bw_mem_rd32

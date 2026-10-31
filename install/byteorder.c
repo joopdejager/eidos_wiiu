@@ -26,6 +26,15 @@
  *
  *   a/0/2/3: the fonts (install/font_order.c, bw_nftr_to_host).
  *
+ *   Every archive: the NITRO 3D files (models, textures, animations) its
+ *   members are or hold (sdk/g3d_order.h, bw_g3d_member_to_host), and the
+ *   camera animations (ICA, src/game/arm9/ica_anime.c): a u32 frame count,
+ *   three u8 channel flags (scale, rotation, translation) and a pad byte,
+ *   then for every frame three float32 per channel present, which
+ *   ICA_ANIME_LoadHeader and ICA_ANIME_LoadFrames read straight from the
+ *   archive with native loads (bw_ica_to_host).  They have no tag: a member
+ *   is one when its size is that shape's and every value a plausible float.
+ *
  *   a/0/0/2, a/0/0/3, and member 1 of a/1/1/1..a/1/1/4 (the musicals'
  *   stages): message banks (src/game/arm9/msgdata.c), read by
  *   MSGDATA_LoadFileHeader, MSGDATA_LoadBank and MSGDATA_ReadUnits with
@@ -45,6 +54,7 @@
 #include <string.h>
 
 #include "install.h"
+#include "g3d_order.h"
 #include "sdat_order.h"
 
 #if !defined(_WIN32)
@@ -160,6 +170,34 @@ int bw_msg_to_host(u8 *p, u32 n)
     fix16(p + 2);
     fix32(p + 4);
     fix32(p + 8);
+    return 1;
+}
+
+/* A camera animation (ICA) in the host's order: 1 turned, 0 not one. */
+int bw_ica_to_host(u8 *p, u32 n)
+{
+    u32 frames, ch, at;
+
+    if (n < 20 || p[4] > 1 || p[5] > 1 || p[6] > 1 || p[7] != 0) {
+        return 0;
+    }
+    frames = le32(p);
+    ch = (u32)p[4] + p[5] + p[6];
+    if (frames == 0 || frames > 100000 || ch == 0 || n != 8u + frames * 12u * ch) {
+        return 0;
+    }
+    for (at = 8; at < n; at += 4) {         /* zero, or between 1e-8 and 1e7 */
+        u32 w = le32(p + at), e = (w >> 23) & 0xFFu;
+
+        if ((w & 0x7FFFFFFFu) != 0 && (e < 100 || e > 150)) {
+            return 0;
+        }
+    }
+    for (at = 0; at < n; at += 4) {
+        if (at != 4) {
+            bw_mem_wr32(p + at, le32(p + at));
+        }
+    }
     return 1;
 }
 
@@ -304,6 +342,13 @@ static const char *buffer_to_host(const char *rel, u8 *buf, u32 size)
             && narc_members_to_host(buf, size, k_formats[k].fn, k_formats[k].member) != 0) {
             return k_formats[k].what;
         }
+    }
+    if (memcmp(buf, "NARC", 4) == 0
+        && narc_members_to_host(buf, size, bw_g3d_member_to_host, -1) != 0) {
+        return "malformed 3D file";
+    }
+    if (memcmp(buf, "NARC", 4) == 0) {
+        narc_members_to_host(buf, size, bw_ica_to_host, -1);
     }
     return bw_narc_to_host(buf, size) < 0 ? "malformed NARC" : NULL;
 }

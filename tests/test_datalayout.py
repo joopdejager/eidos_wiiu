@@ -3,9 +3,11 @@
 
 The struct layouts a big-endian host's swap runs come from: offsets with
 mwcc's alignment, the multi-byte fields as runs, the types it refuses
-(unions, bit-fields, packed), the block stand-ins it treats as opaque, the
-type it infers from a cast of a copied local, and two declarations of one
-object combined (armdata._combined_layout).  Written to a temporary tree;
+(unions whose members differ, bit-fields, packed), the unions it lays out
+(every member one layout, an anonymous struct among them), the pointees of
+pointer fields, the block stand-ins it treats as opaque, the type it infers
+from a cast of a copied local or of a scalar declaration, and two
+declarations of one object combined (armdata._combined_layout).  Written to a temporary tree;
 no game data.
 """
 
@@ -38,6 +40,11 @@ struct Packed { u8 a; u32 b; } __attribute__((packed));
 struct Fn { void (*cb[2])(int); u16 n; };
 typedef Tmpl TmplAlias;
 void take_tmpl(int which, const struct Tmpl *t);
+struct Res { u16 a; u16 b; };
+struct Setup { const struct Res *res; u32 n; union { u32 id; const char *path; } u; };
+typedef union Mtx { struct { u32 _00, _01; u32 _10, _11; }; u32 m[2][2]; u32 a[4]; } Mtx;
+struct Pose { u16 flag; Mtx rot; };
+union Mixed { u32 a; u16 b[2]; };
 """
 
 SOURCE = """
@@ -52,6 +59,11 @@ extern struct Fn d_G;
 extern const unsigned char d_H[];
 extern u16 d_I[];
 extern const u8 d_J[];
+extern struct Setup d_K;
+extern const struct Pose d_L;
+extern u32 d_M[];
+extern union Mixed d_N;
+extern const struct Res d_R[3];
 void f(void)
 {
     take_tmpl(0, &d_J);
@@ -60,6 +72,7 @@ void f(void)
     local = d_C;
     use((const struct Tmpl *)(&local));
     use((struct Tmpl *)d_H);
+    use((const struct Setup *)d_M);
 }
 """
 
@@ -101,10 +114,36 @@ def main():
         check("a scalar declaration is not a layout", "d_I" in lays, False)
         check("bytes passed to a struct-pointer parameter take its layout",
               lays.get("d_J") and lays["d_J"].key(), lays.get("d_A") and lays["d_A"].key())
+        k = lays.get("d_K")
+        check("a pointer member: a word, and its pointee's layout",
+              k and (k.size, k.runs, [(o, pl.size, pl.runs) for o, pl in k.ptrs]),
+              (12, [(0, 12, 4)], [(0, 4, [(0, 4, 2)])]))
+        check("a typedef'd union of one layout, its struct anonymous",
+              lays.get("d_L") and (lays["d_L"].size, lays["d_L"].runs),
+              (20, [(0, 2, 2), (4, 16, 4)]))
+        check("a scalar declaration cast to a struct takes its layout",
+              lays.get("d_M") and lays["d_M"].key(), k and k.key())
+        check("a union of two layouts stays unknown", "d_N" in lays, False)
         addrs = datalayout.address_layouts(sf)
         check("a literal address passed to a struct-pointer parameter",
               {a: l.key() for a, l in addrs.items()},
               {0x02123450: lays["d_A"].key()} if "d_A" in lays else None)
+
+        # armdata.layout_runs: d_K's pointer (a relocation to 0x200) gives
+        # the object there its pointee's layout, over the object's extent;
+        # d_R is laid out over its declared length, the zero and the
+        # "string" the metadata split it into included.
+        objs = [{"addr": "0x100", "size": 12, "kind": "numeric"},
+                {"addr": "0x200", "size": 8, "kind": "numeric"},
+                {"addr": "0x300", "size": 2, "kind": "zero"},
+                {"addr": "0x302", "size": 10, "kind": "string"}]
+        nm = {"d_K": {"addr": 0x100}, "d_R": {"addr": 0x300}}
+        runs, over = armdata.layout_runs(objs, [sf], nm, set(), {0x100: 0x200})
+        check("layout_runs: a pointee, a declared length",
+              (sorted(runs), sorted(over)),
+              ([(0x100, 12, 4), (0x200, 4, 2), (0x204, 4, 2),
+                (0x300, 4, 2), (0x304, 4, 2), (0x308, 4, 2)],
+               [0x100, 0x200, 0x300, 0x302]))
 
         defs = datalayout.file_defs(src)
         check("block body is opaque", datalayout.opaque(defs, "Block"), True)

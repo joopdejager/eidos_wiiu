@@ -558,6 +558,7 @@ set(BW_SDK_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/sdk/vfs_sdat.c      # the sound archive append merge
     ${CMAKE_CURRENT_SOURCE_DIR}/sdk/sdat_order.c    # the sound archive in the host's order
     ${CMAKE_CURRENT_SOURCE_DIR}/sdk/g2d_order.c     # NITRO 2D files in the host's order
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/g3d_order.c     # NITRO 3D files in the host's order
     ${CMAKE_CURRENT_SOURCE_DIR}/sdk/inflate.c       # DEFLATE, for packaged mods
     ${CMAKE_CURRENT_SOURCE_DIR}/sdk/mod_bw.c        # `.bw` mod packages, unpacked to a cache
     ${CMAKE_CURRENT_SOURCE_DIR}/sdk/bw_limits.c     # content limits mods raise (bw_limit_get)
@@ -1544,6 +1545,7 @@ add_library(eidos_install STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/install/byteorder.c
     ${CMAKE_CURRENT_SOURCE_DIR}/install/font_order.c
     ${CMAKE_CURRENT_SOURCE_DIR}/sdk/sdat_order.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/g3d_order.c
 )
 target_include_directories(eidos_install PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/install

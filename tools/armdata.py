@@ -332,15 +332,18 @@ class SourceFile:
         # it indexes is read as bytes (_LongestFreeRun[bits]), a byte array
         # it only passes on is a stand-in that says nothing.
         self.decl_extent = {}
+        self.decl_count = {}            # elements, for any type (layout_runs)
         self.subscripted = set()
         for dm in _EXTERN_DECL_RE.finditer(code):
             w = decl_width(dm.group(1))
             dims = re.findall(r"\[\s*(0x[0-9A-Fa-f]+|\d+)\s*\]", dm.group(0))
-            if w is not None and dims:
+            if dims:
                 n = 1
                 for x in dims:
                     n *= int(x, 0)
-                self.decl_extent[dm.group(2)] = n * w
+                self.decl_count[dm.group(2)] = n
+                if w is not None:
+                    self.decl_extent[dm.group(2)] = n * w
         for sm in re.finditer(r"\b([A-Za-z_]\w*)\s*\[", code):
             if sm.group(1) in self.decl_types:
                 self.subscripted.add(sm.group(1))
@@ -723,25 +726,33 @@ def object_swap_runs(obj):
     return []
 
 
-def data_swap_runs(objects, reloc_words, sources, names, region):
+def data_swap_runs(objects, relocs, sources, names, region):
     """The swap runs of one region's data (the ARM9 image's here, an
     overlay's in tools/ovlink.py): data_objects.json's types, the listed
-    pointer words and what the sources declare, the declarations replacing
-    the metadata's typing where declared_runs says so."""
-    decl, over = declared_runs(objects, sources, names, region)
+    pointer words (`relocs`, {"where", "target", "kind"}) and what the
+    sources declare, the declarations replacing the metadata's typing where
+    declared_runs says so."""
+    data_relocs = {r["where"]: r["target"] for r in relocs if r.get("kind") == "DATA"}
+    decl, over = declared_runs(objects, sources, names, region, data_relocs)
     obj = [r for o in objects if int(o["addr"], 16) not in over
            for r in object_swap_runs(o)]
-    return merge_runs(obj + [(w, 4, 4) for w in reloc_words] + decl)
+    return merge_runs(obj + [(r["where"], 4, 4) for r in relocs] + decl)
 
 
-def layout_runs(objects, sources, names, skip):
+def layout_runs(objects, sources, names, skip, data_relocs=None):
     """Runs from struct layouts (tools/datalayout.py): where a source
-    declares a name as a struct (or as bytes it casts to one), that layout,
-    tiled over the object at the address (or at a literal address the
-    source passes to a struct-pointer parameter), replaces data_objects.json's
-    numeric or raw guess there.  The metadata's evidence-based kinds
-    (struct, pointer_table, string) and the addresses in `skip` keep theirs.
-    Two layouts at one address (two declarations of one object) combine
+    declares a name as a struct (or casts it, or passes it, by name or
+    literal address, to a struct pointer), that layout, tiled over the
+    object at the address, replaces data_objects.json's guess there; and
+    each pointer field of a placed layout gives the object its relocation
+    points at (`data_relocs`, {where: target}) the pointee's layout, and so
+    on down (the title's G3dUtilSetup to its resource, object and
+    animation tables).  A declared array is laid out over its declared
+    length, the objects the metadata split it into included.  The guess
+    replaced is a numeric, raw or zero object, or a metadata struct whose
+    pointer words the layout agrees with (its other fields' widths are
+    guesses), or inside a declared array a string; pointer tables, other
+    strings and the addresses in `skip` keep theirs.  Two layouts at one address combine
     when they are one size and no byte is a field of two widths:
     CdemoEntry's lone u16 and CdemoScriptStep's u16, u16, int, int; any
     other pair gives none.  Returns the runs and the addresses of the
@@ -749,37 +760,71 @@ def layout_runs(objects, sources, names, skip):
     import datalayout
     starts = sorted((int(o["addr"], 16), o) for o in objects)
     at = dict(starts)
+    data_relocs = data_relocs or {}
     by_addr = {}
+    count = {}
     for sf in sources:
         for name, lay in datalayout.declared_layouts(sf, names).items():
             by_addr.setdefault(names[name]["addr"], {})[lay.key()] = lay
+            n = getattr(sf, "decl_count", {}).get(name, 1)
+            count[names[name]["addr"]] = max(count.get(names[name]["addr"], 1), n)
         for addr, lay in datalayout.address_layouts(sf).items():
             if addr in at:                  # a literal address: this region's object
                 by_addr.setdefault(addr, {})[lay.key()] = lay
-    runs, over = [], set()
+    queue = []
     for addr, lays in sorted(by_addr.items()):
         lay = _combined_layout(list(lays.values()))
-        if lay is None or addr in skip:
+        if lay is not None:
+            queue.append((addr, lay, True))
+    runs, over, placed = [], set(), set()
+    while queue:
+        addr, lay, named = queue.pop(0)
+        if addr in placed or addr in skip:
             continue
         o = at.get(addr)
-        if o is not None and o["kind"] not in ("numeric", "raw", "zero"):
-            continue
-        extent = max(lay.size, o["size"] if o is not None else 0)
+        if o is None and not named:
+            continue                        # a pointee outside this region
+        extent = max(lay.size * (count.get(addr, 1) if named else 1),
+                     o["size"] if o is not None else 0)
         extent -= extent % lay.size
         inside = [a for a, _o in starts if addr <= a < addr + extent]
-        if any(at[a]["kind"] not in ("numeric", "raw", "zero") for a in inside):
-            continue                        # a typed object inside: keep the metadata
+        words = {addr + i * lay.size + off + k
+                 for i in range(extent // lay.size)
+                 for off, n, w in lay.runs if w == 4 for k in range(0, n, 4)}
+        if not all(_layout_may_replace(at[a], words, named) for a in inside):
+            continue                        # evidence the layout disagrees with
+        placed.add(addr)
         for i in range(extent // lay.size):
-            runs.extend((addr + i * lay.size + off, n, w) for off, n, w in lay.runs)
+            base = addr + i * lay.size
+            runs.extend((base + off, n, w) for off, n, w in lay.runs)
+            for off, pl in lay.ptrs:
+                target = data_relocs.get(base + off)
+                if target is not None:
+                    queue.append((target, pl, False))
         over.update(inside)
         over.add(addr)
     return runs, over
+
+
+def _layout_may_replace(o, words, named=False):
+    """Whether a layout may replace one metadata object's typing: a guess
+    (numeric, raw, zero), or a struct whose pointer words are all words of
+    the layout; and inside a declared array of structs, a "string" (the
+    metadata reads sTexStartAddrTable's u16 0x6800s as text: the layout's
+    byte fields stay bytes either way)."""
+    if o["kind"] in ("numeric", "raw", "zero") or (named and o["kind"] == "string"):
+        return True
+    if o["kind"] == "struct":
+        return all(loc in words for loc, _t in object_pointer_words(o))
+    return False
 
 
 def _combined_layout(lays):
     """One layout from several of one object's, or None when they differ in
     size or claim a byte at two widths (layout_runs)."""
     import datalayout
+    if len(lays) == 1:
+        return lays[0]
     if len({lay.size for lay in lays}) != 1:
         return None
     width_at = {}
@@ -790,11 +835,16 @@ def _combined_layout(lays):
                     if width_at.setdefault(b, (a, w)) != (a, w):
                         return None
     elems = sorted(set(width_at.values()))
+    ptrs = {}
+    for lay in lays:
+        for off, pl in lay.ptrs:
+            ptrs.setdefault(off, pl)
     return datalayout.Layout(lays[0].size, max(lay.align for lay in lays),
-                             merge_runs([(a, w, w) for a, w in elems]))
+                             merge_runs([(a, w, w) for a, w in elems]), sorted(ptrs.items(),
+                                                                          key=lambda x: x[0]))
 
 
-def declared_runs(objects, sources, names, region):
+def declared_runs(objects, sources, names, region, data_relocs=None):
     """Runs for what the sources declare, over `objects` (data_objects.json's,
     of one region), the SourceFiles that name them and `names` (name -> a
     dict with its "addr" and, if known, "size").  Struct layouts first
@@ -856,7 +906,7 @@ def declared_runs(objects, sources, names, region):
                     if am and am.group(1) == region and int(am.group(2), 16) in sizes:
                         listed[int(am.group(2), 16)] = (f, None)
     skip = set(listed)
-    out, over = layout_runs(objects, sources, names, skip)
+    out, over = layout_runs(objects, sources, names, skip, data_relocs)
     for addr, ws in widths.items():
         if addr in over:
             continue
@@ -1178,6 +1228,19 @@ class Model:
             matched = self._is_matched(path, text)
             self.sources.append(_PARSES.get(("SourceFile", path, matched), text,
                                             lambda: SourceFile(path, text, matched)))
+        # Sources read only for how they view this region's data (an
+        # overlay's `(struct ClactSysInit *)gClActorInitParam`): the swap
+        # runs' declarations, nothing bound or defined.
+        self.type_sources = []
+        for path in getattr(args, "type_source_paths", []):
+            if not os.path.exists(path):
+                continue
+            text = read_text(path)
+            if "/src/game/" in path.replace("\\", "/"):
+                import gamecut
+                text = gamecut.cut(text, set(), True)[0]
+            self.type_sources.append(_PARSES.get(("SourceFile", path, True), text,
+                                                 lambda: SourceFile(path, text, True)))
         self.func_names, self.isa_by_addr = load_function_names(
             self.root, self.sources, self.region)
         self._collect_definitions()
@@ -1902,7 +1965,7 @@ def write_c(m: Model, path: str):
     w("")
     # The 16- and 32-bit runs a big-endian host turns into its own order
     # (data_objects.json's types, and every listed pointer word).
-    swaps = data_swap_runs(m.objects, [r["where"] for r in m.relocs], m.sources, m.names,
+    swaps = data_swap_runs(m.objects, m.relocs, m.sources + m.type_sources, m.names,
                            m.region)
     w("/* The 16- and 32-bit runs of the data, for a big-endian host. */")
     w("static const BwDataSwap k_swap[] = {")
@@ -1985,6 +2048,10 @@ def main(argv=None) -> int:
                     help="file listing the build's sources, one path per line")
     ap.add_argument("--source", action="append", default=[],
                     help="one source path (repeatable)")
+    ap.add_argument("--type-sources", action="append", default=[],
+                    help="file listing sources read only for how they declare "
+                         "and cast this region's data names (the overlays' "
+                         "views of ARM9 data); nothing in them is bound")
     ap.add_argument("--bind-source", action="append", default=[],
                     help="a port source compiled with the header: bind the "
                          "data names it uses like a matched file's (repeatable)")
@@ -2022,6 +2089,12 @@ def main(argv=None) -> int:
                     paths.append(line)
     seen = set()
     args.source_paths = [p for p in paths if not (p in seen or seen.add(p))]
+    args.type_source_paths = []
+    for lst in args.type_sources:
+        with open(lst, encoding="utf-8") as fh:
+            args.type_source_paths.extend(
+                line.strip() for line in fh
+                if line.strip().endswith(".c") and line.strip() not in seen)
     m = Model(args)
     if args.out_h:
         write_header(m, args.out_h)

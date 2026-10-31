@@ -2710,7 +2710,7 @@ class Link:
         # the overlay's own file is turned; a name its sources declare in the
         # ARM9 or another overlay is that image's.
         objects = self.al.data_objects(ov.id)
-        runs = armdata.data_swap_runs(objects, [r["where"] for r in st.relocs],
+        runs = armdata.data_swap_runs(objects, st.relocs,
                                       [u.scan.widths for u in st.units], st.data, ov.tag)
         st.swaps = [(a, n, w) for a, n, w in runs
                     if ov.lo <= a and a + n <= ov.code_end]

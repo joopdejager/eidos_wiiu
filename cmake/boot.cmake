@@ -613,8 +613,20 @@ file(GENERATE OUTPUT ${EIDOS_BOOT_DIR}/armdata_sources.txt
 ${_boot_armdata_txt}
 ")
 set(_boot_port_units ${EIDOS_BOOT_PORT_SOURCES} ${EIDOS_BOOT_ASM_SUBST})
+# The overlays' units, read only for how they view ARM9 data: a table the
+# ARM9's own code never names is typed by the overlay that casts it
+# (ov088's `(struct ClactSysInit *)gClActorInitParam`).
+set(_boot_type_sources)
+if(EIDOS_SOURCE_TREE STREQUAL "game")
+    file(GLOB _boot_type_sources ${ALETHEIA_ROOT}/src/game/ov[0-9][0-9][0-9]/*.c)
+    list(SORT _boot_type_sources)
+endif()
+string(REPLACE ";" "\n" _boot_type_txt "${_boot_type_sources}")
+file(GENERATE OUTPUT ${EIDOS_BOOT_DIR}/armdata_type_sources.txt
+     CONTENT "${_boot_type_txt}\n")
 eidos_armdata(bw_arm9_data CODE_SCAN
     SOURCES_LIST ${EIDOS_BOOT_DIR}/armdata_sources.txt
+    TYPE_SOURCES_LIST ${EIDOS_BOOT_DIR}/armdata_type_sources.txt
     BIND ${_boot_port_units})
 
 # --- build: one wrapper per translation unit --------------------------------

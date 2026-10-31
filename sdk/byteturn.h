@@ -8,6 +8,11 @@
  * offsets share is turned by the first and skipped by the second.  A turn
  * outside the image, or at an odd address, marks the image malformed
  * (Turn.bad).  On a little-endian host a turn writes the value it read.
+ *
+ * A turn can also run back (Turn.to_ds, sdk/g3d_order.c): the image is
+ * then in the host's order, le16 and le32 read it natively, and a turn
+ * writes each number little-endian again.  The walk is the same either
+ * way, as it reads every number before it turns it.
  */
 
 #ifndef BW_BYTETURN_H
@@ -22,12 +27,18 @@ typedef struct Turn {
     u32  n;
     u8  *done;          /* one bit per halfword */
     int  bad;
+    int  to_ds;         /* the image is in the host's order, turned back */
 } Turn;
 
+/* A number as the image holds it now: little-endian, or the host's order
+ * when turning back. */
 static inline u32 le16(const Turn *t, u32 at)
 {
     if (t->n < 2u || at > t->n - 2u) {
         return 0;
+    }
+    if (t->to_ds) {
+        return bw_mem_rd16(t->p + at);
     }
     return (u32)t->p[at] | ((u32)t->p[at + 1] << 8);
 }
@@ -36,6 +47,9 @@ static inline u32 le32(const Turn *t, u32 at)
 {
     if (t->n < 4u || at > t->n - 4u) {
         return 0;
+    }
+    if (t->to_ds) {
+        return bw_mem_rd32(t->p + at);
     }
     return (u32)t->p[at] | ((u32)t->p[at + 1] << 8) | ((u32)t->p[at + 2] << 16)
            | ((u32)t->p[at + 3] << 24);
@@ -58,7 +72,11 @@ static inline void fix16(Turn *t, u32 at)
         return;
     }
     if (!is_done(t, at)) {
-        bw_mem_wr16(t->p + at, (u16)le16(t, at));
+        if (t->to_ds) {
+            bw_wr16(t->p + at, (u16)le16(t, at));
+        } else {
+            bw_mem_wr16(t->p + at, (u16)le16(t, at));
+        }
         mark(t, at);
     }
 }
@@ -70,7 +88,11 @@ static inline void fix32(Turn *t, u32 at)
         return;
     }
     if (!is_done(t, at)) {
-        bw_mem_wr32(t->p + at, le32(t, at));
+        if (t->to_ds) {
+            bw_wr32(t->p + at, le32(t, at));
+        } else {
+            bw_mem_wr32(t->p + at, le32(t, at));
+        }
         mark(t, at);
         mark(t, at + 2);
     }
@@ -87,6 +109,7 @@ static inline int turn_begin(Turn *t, u8 *p, u32 n)
     t->p = p;
     t->n = n;
     t->bad = 0;
+    t->to_ds = 0;
     t->done = (u8 *)calloc(n / 16u + 1u, 1);
     return t->done != NULL ? 0 : -1;
 }

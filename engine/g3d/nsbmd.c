@@ -58,6 +58,7 @@
 #include <string.h>
 
 #include "g3d.h"
+#include "g3d_order.h"
 
 /* ------------------------------------------------------------------ */
 /* Resource dictionaries                                               */
@@ -472,6 +473,7 @@ G3dTexArchive *g3d_texarchive_open(const char *rel_path)
         if (bw_arc_read_member(&ar->arc, i, buf, buf_cap) != size) {
             continue;
         }
+        bw_g3d_member_to_ds(buf, (u32)size);   /* this reader reads the DS's order */
         if (memcmp(buf, "BTX0", 4) != 0 && memcmp(buf, "BMD0", 4) != 0) {
             continue;
         }
@@ -559,6 +561,7 @@ const G3dTexture *g3d_texarchive_get(G3dTexArchive *ar, const char *name)
         return NULL;
     }
     if (bw_arc_read_member(&ar->arc, subfile, buf, size32) != size ||
+        bw_g3d_member_to_ds(buf, size32) < 0 ||
         (block = g3d_container_block(buf, size32, "TEX0", &bsize)) == NULL ||
         g3d_tex0_parse(&tex0, block, bsize) != 0) {
         free(buf);
@@ -1129,6 +1132,7 @@ int g3d_model_load(G3dModel *out, const char *rel_path, u32 index,
         bw_arc_close(&arc);
         return -1;
     }
+    bw_g3d_member_to_ds(raw, raw_size);   /* this reader reads the DS's order */
     bw_arc_close(&arc);
 
     /* An a/0/0/8 sub-file is header || BMD0 || per-tile grid || tail. */

@@ -38,14 +38,17 @@ _QUALIFIERS = {"const", "volatile", "static", "extern", "register", "signed", "u
 
 
 class Layout:
-    """A type's size, alignment and swap runs [(offset, size, width)]."""
+    """A type's size, alignment and swap runs [(offset, size, width)], and
+    its pointer fields whose pointee is laid out: [(offset, Layout)]
+    (tools/armdata.py follows them to the objects they point at)."""
 
-    __slots__ = ("size", "align", "runs")
+    __slots__ = ("size", "align", "runs", "ptrs")
 
-    def __init__(self, size, align, runs):
+    def __init__(self, size, align, runs, ptrs=None):
         self.size = size
         self.align = align
         self.runs = runs
+        self.ptrs = ptrs or []
 
     def key(self):
         return (self.size, tuple(self.runs))
@@ -105,7 +108,8 @@ class Defs:
 
     def __init__(self):
         self.structs = {}       # tag -> body text, or None for a union
-        self.typedefs = {}      # name -> ("body", text) | ("union",) | ("type", text)
+        self.typedefs = {}      # name -> ("body", text) | ("ubody", text) | ("union",) | ("type", text)
+        self.unions = {}        # tag -> body text, or None (packed, aligned)
         self.protos = {}        # function name -> [parameter type texts]
         self._cache = {}
 
@@ -129,6 +133,7 @@ class Defs:
                 self.structs.setdefault(tag, None if attr else body)
             elif tag and kind == "union":
                 self.structs.setdefault(tag, None)
+                self.unions.setdefault(tag, None if attr else body)
             if m.group(1):
                 tail = re.sub(r"__attribute__\s*\(\(.*?\)\)", " ", tail)
                 for d in _split_top(tail, ","):
@@ -142,6 +147,8 @@ class Defs:
                         self.typedefs.setdefault(name, ("type", "int"))
                     elif kind == "struct" and not attr:
                         self.typedefs.setdefault(name, ("body", body))
+                    elif kind == "union" and not attr:
+                        self.typedefs.setdefault(name, ("ubody", body))
                     else:
                         self.typedefs.setdefault(name, ("union",))
             i = end
@@ -168,7 +175,8 @@ class Defs:
             if words[0] == "enum":
                 return _scalar(4)
             if words[0] == "union":
-                return None
+                body = self.unions.get(words[1])
+                return None if body is None else self._union_layout(("union", words[1]), body, depth + 1)
             return self.struct_layout(words[1], depth + 1)
         if words == ["long", "long"]:
             return _scalar(8)
@@ -180,6 +188,8 @@ class Defs:
             return None
         if td[0] == "union":
             return None
+        if td[0] == "ubody":
+            return self._union_layout(("typedef", name), td[1], depth + 1)
         if td[0] == "body":
             return self._body_layout(("typedef", name), td[1], depth + 1)
         return self.type_layout(td[1], depth + 1)
@@ -189,6 +199,14 @@ class Defs:
         if body is None:
             return None
         return self._body_layout(("struct", tag), body, depth)
+
+    def _union_layout(self, key, body, depth):
+        """A union laid out when every member has one layout (MtxFx33: nine
+        fx32 by element, by row and column, and flat)."""
+        if key not in self._cache:
+            self._cache[key] = None         # a cycle is unknown
+            self._cache[key] = self._union(body, depth)
+        return self._cache[key]
 
     def _body_layout(self, key, body, depth):
         if key in self._cache:
@@ -204,11 +222,16 @@ class Defs:
         """[(Layout or None, count)] for one member declaration."""
         dims_re = r"((?:\[[^\]]*\]\s*)*)"
         if "{" in member:                   # struct { ... } a, b[2];
-            if re.match(r"struct\s*\{", member) is None:
-                return [(None, 1)]          # a union
+            um = re.match(r"(struct|union)\s*\{", member)
+            if um is None:
+                return [(None, 1)]
             i = member.index("{")
             end = _match_brace(member, i)
-            inner = self._lay_out(member[i + 1:end - 1], depth + 1)
+            body = member[i + 1:end - 1]
+            inner = (self._lay_out(body, depth + 1) if um.group(1) == "struct"
+                     else self._union(body, depth + 1))
+            if not member[end:].strip():
+                return [(inner, 1)]         # an anonymous member: its fields are the outer's
             return [(inner, _count(re.match(r"\s*\**\s*[A-Za-z_]\w*\s*" + dims_re, d).group(1)))
                     if re.match(r"\s*[A-Za-z_]\w*", d) else (None, 1)
                     for d in _split_top(member[end:], ",") if d.strip()]
@@ -219,19 +242,42 @@ class Defs:
         m = re.match(r"(.*?)(\**)\s*\b([A-Za-z_]\w*)\s*" + dims_re + r"$", parts[0].strip(), re.S)
         if m is None:
             return [(None, 1)]
-        base = self.type_layout(m.group(1), depth + 1)
-        out = [(_scalar(4) if m.group(2) else base, _count(m.group(4)))]
+        base = None if m.group(2) else self.type_layout(m.group(1), depth + 1)
+        out = [(self._pointer(m.group(1), len(m.group(2)), depth) if m.group(2) else base,
+                _count(m.group(4)))]
         for d in parts[1:]:
             dm = re.match(r"\s*(\**)\s*([A-Za-z_]\w*)\s*" + dims_re + r"$", d)
             if dm is None:
                 return [(None, 1)]
-            out.append((_scalar(4) if dm.group(1) else base, _count(dm.group(3))))
+            if base is None and not dm.group(1):
+                base = self.type_layout(m.group(1), depth + 1)
+            out.append((self._pointer(m.group(1), len(dm.group(1)), depth) if dm.group(1)
+                        else base, _count(dm.group(3))))
         return out
+
+    def _pointer(self, pointee_text, stars, depth):
+        """A pointer member: a word, and the layout of what it points at when
+        it is a single pointer to a struct or a multi-byte scalar the module
+        lays out."""
+        word = _scalar(4)
+        if depth < 8 and stars == 1 and "*" not in pointee_text:
+            pl = self.type_layout(pointee_text, depth + 1)
+            if pl is not None and pl.runs:
+                word = Layout(4, 4, [(0, 4, 4)], [(0, pl)])
+        return word
+
+    def _union(self, body, depth):
+        """A union laid out only when every member has the same layout (the
+        G3D setup's `union { u32 id; const char *path; }` is one word)."""
+        lays = [self._lay_out(m.strip() + ";", depth) for m in _split_top(body, ";") if m.strip()]
+        if not lays or any(l is None for l in lays):
+            return None
+        return lays[0] if len({l.key() for l in lays}) == 1 else None
 
     def _lay_out(self, body, depth):
         if "__attribute__" in body or ":" in body:
             return None                     # an attribute or a bit-field
-        off, align, runs = 0, 1, []
+        off, align, runs, ptrs = 0, 1, [], []
         for member in _split_top(body, ";"):
             member = member.strip()
             if not member:
@@ -243,10 +289,11 @@ class Defs:
                 for i in range(count):
                     base = off + i * lay.size
                     runs.extend((base + o, s, w) for o, s, w in lay.runs)
+                    ptrs.extend((base + o, pl) for o, pl in lay.ptrs)
                 off += lay.size * count
                 align = max(align, lay.align)
         size = (off + align - 1) // align * align
-        return Layout(size, align, _merge(runs))
+        return Layout(size, align, _merge(runs), ptrs)
 
 
 def _count(dims):
@@ -388,6 +435,13 @@ def _arg_types(d, sf):
     return out
 
 
+def _scalar_text(type_text):
+    """Whether a declaration's type is a plain scalar (u32 d_X[] is how the
+    decomp often spells a struct it casts the name to)."""
+    words = [w for w in re.findall(r"[A-Za-z_]\w*", type_text) if w not in _QUALIFIERS]
+    return bool(words) and words[-1] in SCALARS or words == ["long", "long"]
+
+
 def _one_layout(d, type_texts):
     """The one struct layout a set of type spellings agrees on, or None."""
     found = {}
@@ -485,7 +539,8 @@ def declared_layouts(sf, data_names):
         if name not in data_names:
             continue
         lay = real_struct(d, type_text)
-        if lay is None and opaque(d, type_text):
+        if lay is None and "*" not in type_text and (opaque(d, type_text)
+                                                     or _scalar_text(type_text)):
             lay = _one_layout(d, casts_of.get(name, set()) | args.get(("name", name), set()))
         if lay is not None:
             out[name] = lay

@@ -37,6 +37,7 @@
 #include <string.h>
 
 #include "bmap_npc.h"
+#include "g3d_order.h"
 #include "port.h"
 #include "types.h"
 
@@ -100,6 +101,9 @@ static u8 *member(const char *path, u32 id, long *size)
     if (buf != NULL && bw_arc_read_member(&arc, id, buf, (u32)n) != n) {
         free(buf);
         buf = NULL;
+    }
+    if (buf != NULL) {
+        bw_g3d_member_to_ds(buf, (u32)n);   /* this reader reads the DS's order */
     }
     bw_arc_close(&arc);
     *size = n;

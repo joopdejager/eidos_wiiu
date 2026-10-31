@@ -10,6 +10,9 @@
 #       [BIND <src>...]           port sources whose data names are bound
 #                                 like a matched file's; the caller includes
 #                                 the header in them itself
+#       [TYPE_SOURCES_LIST <file>] sources read only for how they declare and
+#                                 cast the region's data (the overlays' views
+#                                 of ARM9 data: the swap runs), nothing bound
 #       [CODE_SCAN])              list every function the sources define for
 #                                 the run-time scan for code pointers the
 #                                 metadata misses (docs/armdata.md); only for
@@ -39,7 +42,7 @@ get_filename_component(EIDOS_ARMDATA_WIDTHS "${CMAKE_CURRENT_LIST_DIR}/../tools/
 get_filename_component(EIDOS_DATALAYOUT_TOOL "${CMAKE_CURRENT_LIST_DIR}/../tools/datalayout.py" ABSOLUTE)
 
 function(eidos_armdata prefix)
-    cmake_parse_arguments(A "CODE_SCAN" "SOURCES_LIST;REGION" "MATCHED;BIND" ${ARGN})
+    cmake_parse_arguments(A "CODE_SCAN" "SOURCES_LIST;REGION;TYPE_SOURCES_LIST" "MATCHED;BIND" ${ARGN})
     if(NOT A_SOURCES_LIST)
         message(FATAL_ERROR "eidos_armdata(${prefix}): SOURCES_LIST is required")
     endif()
@@ -66,6 +69,9 @@ function(eidos_armdata prefix)
     foreach(src ${A_BIND})
         list(APPEND bind_args --bind-source ${src})
     endforeach()
+    if(A_TYPE_SOURCES_LIST)
+        list(APPEND bind_args --type-sources ${A_TYPE_SOURCES_LIST})
+    endif()
     # The player's ARM9 image beside the data root: the veneers and adjustor
     # thunks the data points at, which the listing would name (optional).
     get_filename_component(_armdata_extract_dir "${BW_DATA_ROOT_ABS}" DIRECTORY)
@@ -92,6 +98,7 @@ function(eidos_armdata prefix)
         DEPENDS ${EIDOS_ARMDATA_TOOL} ${EIDOS_ARMDATA_WIDTHS} ${EIDOS_DATALAYOUT_TOOL}
                 ${EIDOS_ARMDATA_EXCLUSIONS}
                 ${A_SOURCES_LIST}
+                ${A_TYPE_SOURCES_LIST}
                 ${A_BIND}
                 ${_armdata_cut_dep}
                 ${ALETHEIA_ROOT}/layout/layout.json

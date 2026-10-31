@@ -7,13 +7,16 @@
  * written on either host, the four-byte tags and the bytes that are not
  * numbers must be untouched, text two entries share is turned once, and a
  * malformed container is refused.  On a little-endian host the turn
- * changes nothing and the same checks hold.
+ * changes nothing and the same checks hold.  A 3D animation
+ * (sdk/g3d_order.c) is also turned back, to the cartridge's bytes, and
+ * found inside a member; a camera animation (ICA) is known by its shape.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "g3d_order.h"
 #include "install.h"
 #include "port_test.h"
 
@@ -216,10 +219,123 @@ static void test_font(void)
     BW_CHECK_EQ("font: unknown map method", bw_nftr_to_host(p, n), -1);
 }
 
+/* ---- a 3D animation: one joint track, two constants ---------------- */
+
+/* A BCA0 of one JNT0 animation of four frames over one node: x a track of
+ * four fx16 keys, y and z constants, rotation zero, scale one. */
+static u32 make_bca(u8 *p)
+{
+    u32 b = 20, a = b + 48, r = a + 24, k = r + 20, i;
+
+    memset(p, 0, 160);
+    memcpy(p, "BCA0", 4);
+    bw_wr16(p + 4, 0xFEFF);
+    bw_wr16(p + 6, 0x0001);
+    bw_wr16(p + 12, 16);
+    bw_wr16(p + 14, 1);
+    bw_wr32(p + 16, b);
+    memcpy(p + b, "JNT0", 4);
+    p[b + 8 + 1] = 1;                       /* the dictionary: one entry */
+    bw_wr16(p + b + 8 + 2, 40);
+    bw_wr16(p + b + 8 + 4, 8);
+    bw_wr16(p + b + 8 + 6, 16);
+    bw_wr16(p + b + 24, 4);                 /* unit, names */
+    bw_wr16(p + b + 26, 8);
+    bw_wr32(p + b + 28, a - b);
+    memcpy(p + b + 32, "anim_name", 9);
+    p[a] = 'J';
+    bw_wr16(p + a + 2, 0x4341);             /* "AC" */
+    bw_wr16(p + a + 4, 4);                  /* frames */
+    bw_wr16(p + a + 6, 1);                  /* nodes */
+    bw_wr32(p + a + 8, 1);
+    bw_wr32(p + a + 12, k + 8 - a);         /* the rotation tables: unread */
+    bw_wr32(p + a + 16, k + 8 - a);
+    bw_wr16(p + a + 20, (u16)(r - a));
+    bw_wr32(p + r, 0x05000270);             /* node 5; y, z constant; R zero, S one */
+    bw_wr32(p + r + 4, 0x20000000);         /* x: fx16 keys */
+    bw_wr32(p + r + 8, k - a);
+    bw_wr32(p + r + 12, 0x00012345);
+    bw_wr32(p + r + 16, 0xFFFF8000);
+    for (i = 0; i < 4; i++) {
+        bw_wr16(p + k + 2 * i, (u16)(0x0100 * (i + 1)));
+    }
+    bw_wr32(p + b + 4, k + 8 - b);
+    bw_wr32(p + 8, k + 8);
+    return k + 8;
+}
+
+static void test_g3d(void)
+{
+    u8 p[160], orig[160], member[176];
+    u32 n = make_bca(p), a = 68, r = a + 24, k = r + 20;
+
+    memcpy(orig, p, sizeof p);
+    BW_CHECK_EQ("g3d: turned", bw_g3d_to_host(p, n), 1);
+    BW_CHECK_EQ("g3d: tag, as the game compares it", bw_dr_rd32(p), 0x30414342u);
+    BW_CHECK_EQ("g3d: byte-order mark", bw_dr_rd16(p + 4), 0xFEFF);
+    BW_CHECK_EQ("g3d: block tag", bw_dr_rd32(p + 20), 0x30544E4Au);
+    BW_CHECK_EQ("g3d: dictionary entry", bw_dr_rd32(p + 48), 48);
+    BW_CHECK_EQ("g3d: a name stays bytes", memcmp(p + 52, "anim_name", 9), 0);
+    BW_CHECK_EQ("g3d: category", bw_dr_rd16(p + a + 2), 0x4341);
+    BW_CHECK_EQ("g3d: frames", bw_dr_rd16(p + a + 4), 4);
+    BW_CHECK_EQ("g3d: node record offset", bw_dr_rd16(p + a + 20), 24);
+    BW_CHECK_EQ("g3d: node flag", bw_dr_rd32(p + r), 0x05000270u);
+    BW_CHECK_EQ("g3d: track info", bw_dr_rd32(p + r + 4), 0x20000000u);
+    BW_CHECK_EQ("g3d: a constant", bw_dr_rd32(p + r + 16), 0xFFFF8000u);
+    BW_CHECK_EQ("g3d: the last key", bw_dr_rd16(p + k + 6), 0x0400);
+    BW_CHECK_EQ("g3d: turned once only", bw_g3d_to_host(p, n), BW_HOST_BIG_ENDIAN ? 0 : 1);
+    BW_CHECK_EQ("g3d: back", bw_g3d_to_ds(p, n), 1);
+    BW_CHECK_EQ("g3d: back is the cartridge's bytes", memcmp(p, orig, n), 0);
+
+    make_bca(p);
+    bw_wr16(p + a + 4, 40);                 /* keys past the file */
+    memcpy(orig, p, sizeof p);
+    BW_CHECK_EQ("g3d: malformed", bw_g3d_to_host(p, n), -1);
+    BW_CHECK_EQ("g3d: a malformed file is left as it was", memcmp(p, orig, n), 0);
+
+    make_bca(p);
+    memset(member, 0xAB, sizeof member);
+    memcpy(member + 12, p, n);
+    BW_CHECK_EQ("g3d: a file inside a member", bw_g3d_member_to_host(member, sizeof member),
+                BW_HOST_BIG_ENDIAN ? 1 : 0);
+    BW_CHECK_EQ("g3d: inside a member, frames", bw_dr_rd16(member + 12 + a + 4), 4);
+    BW_CHECK_EQ("g3d: the bytes around it", member[11] == 0xAB && member[12 + n] == 0xAB, 1);
+    BW_CHECK_EQ("g3d: and back", bw_g3d_member_to_ds(member, sizeof member),
+                BW_HOST_BIG_ENDIAN ? 1 : 0);
+    BW_CHECK_EQ("g3d: back, the cartridge's bytes", memcmp(member + 12, p, n), 0);
+}
+
+/* ---- a camera animation: two frames of translation ----------------- */
+
+static void test_ica(void)
+{
+    u8 p[32];
+    u32 i;
+
+    memset(p, 0, sizeof p);
+    bw_wr32(p, 2);                          /* frames */
+    p[6] = 1;                               /* translation only */
+    for (i = 0; i < 6; i++) {
+        bw_wr32(p + 8 + 4 * i, 0x3F800000u + i);    /* 1.0f and its neighbours */
+    }
+    BW_CHECK_EQ("ica: turned", bw_ica_to_host(p, sizeof p), 1);
+    BW_CHECK_EQ("ica: frames", bw_dr_rd32(p), 2);
+    BW_CHECK_EQ("ica: the flags stay bytes", p[4] == 0 && p[5] == 0 && p[6] == 1 && p[7] == 0, 1);
+    BW_CHECK_EQ("ica: the last key", bw_dr_rd32(p + 28), 0x3F800005u);
+    BW_CHECK_EQ("ica: a member of another size is not one", bw_ica_to_host(p, 28), 0);
+    memset(p, 0, sizeof p);
+    bw_wr32(p, 2);
+    p[6] = 1;
+    bw_wr32(p + 8, 0x7F800000u);            /* infinity: not a key */
+    BW_CHECK_EQ("ica: bytes that are not floats", bw_ica_to_host(p, sizeof p), 0);
+}
+
 int main(void)
 {
     test_narc();
     test_msg();
     test_font();
+    test_g3d();
+    test_ica();
     BW_REPORT("test_byteorder");
 }

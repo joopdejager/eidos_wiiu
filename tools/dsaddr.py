@@ -789,6 +789,53 @@ def _enclosing_call(m: str, off: int):
         i = open_ - 1
 
 
+_VOID_PTR_RE = re.compile(r"\s*(?:(?:const|volatile)\s+)*void\s*\*\s*(?:const\s*)?")
+# A prototype: a statement of type words, the name, a parameter list (no
+# call: nothing but type words may come before the name).
+_PROTO_DECL_RE = re.compile(r"(?:^|[;{}])\s*((?:[A-Za-z_]\w*[\s*]+)+)([A-Za-z_]\w*)\s*"
+                            r"\(([^;{}()]*)\)\s*;")
+_NOT_RETURN_TYPE = {"return", "else", "do", "case", "goto", "sizeof"}
+# A pointer parameter: type words, stars, an optional name.
+_PTR_PARAM_RE = re.compile(r"((?:[A-Za-z_]\w*\s+)*[A-Za-z_]\w*\s*\*[\s*]*)(?:[A-Za-z_]\w*)?\s*$")
+
+
+def _prototypes(m):
+    """(name, parameter list) of each prototype in `m`."""
+    for pm in _PROTO_DECL_RE.finditer(m):
+        if not set(re.findall(r"[A-Za-z_]\w*", pm.group(1))) & _NOT_RETURN_TYPE:
+            yield pm.group(2), pm.group(3)
+
+
+class _Protos:
+    """The parameter type lists of the prototypes in `m` (the unit and, via
+    _rewrite_with_defines, its headers' prototypes), read when first asked."""
+
+    def __init__(self, m):
+        self.m = m
+        self.table = None
+
+    def get(self, name):
+        if self.table is None:
+            self.table = {}
+            for name, params in _prototypes(self.m):
+                self.table.setdefault(name, params.split(","))
+        return self.table.get(name)
+
+
+def _param_width(m, off, protos):
+    """bw_ds_ptr_w's width for a `void *` register cast at `off`: the
+    pointee of the parameter it is passed as, when the callee's prototype is
+    known and names one; else a 32-bit word."""
+    call = _enclosing_call(m, off)
+    params = protos.get(call[0]) if call else None
+    if not params or call[1] >= len(params):
+        return "4"
+    pm = _PTR_PARAM_RE.match(params[call[1]].strip())
+    if pm is None or _VOID_PTR_RE.fullmatch(pm.group(1)):
+        return "4"
+    return "sizeof(*(%s)0)" % " ".join(pm.group(1).split())
+
+
 def _callee_address_arg(m: str, start: int, end: int) -> bool:
     """Whether m[start:end] is, by itself, the address argument of a call
     of a CALLEES function."""
@@ -849,6 +896,7 @@ def analyse(src: str):
     ptr_typedefs = set(_PTR_TYPEDEF_RE.findall(m))
     defs = _defines(m)
     scope = []
+    protos = _Protos(m)
 
     starts = [0] + [nl.end() for nl in re.finditer("\n", src)]
 
@@ -884,9 +932,15 @@ def analyse(src: str):
         # plain call.  A macro or callee parameter (value None) is there for
         # registers.
         io = value is None or 0x04000000 <= value <= 0x04FFFFFF
+        # A `void *` says nothing of the width (GNU C's sizeof (void) is 1):
+        # passed to a function, the parameter's pointee says it
+        # (GXx_SetMasterBrightness_'s vu16 *); else it names a block of
+        # registers, 32-bit words (MI_Copy64B from the clip matrix's).
+        width = (_param_width(m, open_, protos) if _VOID_PTR_RE.fullmatch(type_text)
+                 else "sizeof(*(%s)0)" % type_text)
         cands.append(Site("rewrite", line_of(ls), value, open_, b,
-                          ("((%s)bw_ds_ptr_w(%s, sizeof(*(%s)0)))"
-                           % (type_text, inner, type_text)) if WIDTH and io else
+                          ("((%s)bw_ds_ptr_w(%s, %s))"
+                           % (type_text, inner, width)) if WIDTH and io else
                           "((%s)bw_ds_ptr(%s))" % (type_text, inner),
                           type_text, form, via))
 
@@ -1912,7 +1966,8 @@ def _header_defines(path, seen):
     """The `#define NAME 0x...` lines of the headers `path` includes with
     quotes, recursively (src/game/sdk_ioreg.h's REG_DISPCNT_ADDR), so a cast
     of such a name to a pointer (`(*(vu32 *)REG_DISPCNT_ADDR)`, in the unit
-    or in sdk_ioreg_reg.h) is seen as the fixed address it is."""
+    or in sdk_ioreg_reg.h) is seen as the fixed address it is; and their
+    prototypes with a pointer parameter, for _param_width."""
     out = []
     base = os.path.dirname(os.path.abspath(path))
     for inc in _LOCAL_INCLUDE_RE.findall(_read(path)):
@@ -1926,6 +1981,10 @@ def _header_defines(path, seen):
         # DS register. Feed its numeric value to the address rewriter.
         out.extend("#define %s %s" % m.groups()
                    for m in _IOREG_DEFINE_RE.finditer(text))
+        # Prototypes with a pointer parameter, for a `void *` register
+        # argument's width (_param_width).
+        out.extend("void %s(%s);" % (name, " ".join(params.split()))
+                   for name, params in _prototypes(mask(text)) if "*" in params)
         out.extend(_header_defines(hp, seen))
     return out
 

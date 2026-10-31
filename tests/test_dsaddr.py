@@ -733,5 +733,41 @@ def main():
     unittest.main(argv=[sys.argv[0]] + rest, verbosity=2)
 
 
+
+class Width(unittest.TestCase):
+    """--width (a big-endian target): a register cast passes its access width
+    to bw_ds_ptr_w; a `void *` block of registers passes the word's, not GNU
+    C's sizeof (void) of 1, which would map it at the byte rule."""
+
+    def rewrite(self, src):
+        old = dsaddr.WIDTH
+        dsaddr.WIDTH = True
+        try:
+            return dsaddr.rewrite(BODY % src, "x.c")[0]
+        finally:
+            dsaddr.WIDTH = old
+
+    def test_typed_access(self):
+        self.assertIn("bw_ds_ptr_w(0x04000280u, sizeof(*(volatile u16 *)0))",
+                      self.rewrite("x = *(volatile u16 *)0x04000280;"))
+
+    def test_void_block(self):
+        self.assertIn("bw_ds_ptr_w(0x04000640u, 4)",
+                      self.rewrite("MI_Copy64B((const void *)0x04000640, m);"))
+
+    def test_void_argument_takes_the_parameter_width(self):
+        # no prototype: a word
+        self.assertIn("bw_ds_ptr_w(0x0400006Cu, 4)",
+                      self.rewrite("Set(0, (void *)0x0400006C);"))
+        old = dsaddr.WIDTH
+        dsaddr.WIDTH = True
+        try:
+            out = dsaddr.rewrite("void Set(int b, volatile u16 *reg);\n"
+                                 + BODY % "Set(0, (void *)0x0400006C);", "x.c")[0]
+        finally:
+            dsaddr.WIDTH = old
+        self.assertIn("bw_ds_ptr_w(0x0400006Cu, sizeof(*(volatile u16 *)0))", out)
+
+
 if __name__ == "__main__":
     main()

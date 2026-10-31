@@ -275,6 +275,11 @@ int bw_msg_to_host(u8 *p, u32 n);
  * malformed. */
 int bw_nftr_to_host(u8 *p, u32 n);   /* 0 also for a member that is not a font */
 
+/* One camera animation (ICA: a u32 frame count, three channel flag bytes,
+ * float32 keys; src/game/arm9/ica_anime.c) from little-endian into the
+ * host's order, in place: 1 done, 0 not one (known by its shape). */
+int bw_ica_to_host(u8 *p, u32 n);
+
 /* Every NARC and SDAT under extract_dir/data into the host's order and the marker
  * written, on a big-endian host; nothing on a little-endian one.  Refuses a
  * tree that already has the marker.  0 on success, -1 with `err` filled. */

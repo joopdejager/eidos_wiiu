@@ -8,17 +8,25 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `eca44b3728cec2f7816bb979658c611947c3c9a3`
+- Revision: `b1f6af01c55e1ffc90b2a522f53cb6dba0982f99`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-10-31 01:40:22 +0000
-- Subject: The title demo's bitmaps are turned into a big-endian host's order
+- Date: 2026-10-31 08:39:08 +0000
+- Subject: Host fixes and visible types for the title's 3D on a big-endian host
 
-The step from `29bd76496`: CDEMO_SCENE_LoadScreenBlock turns the title
+The step from `eca44b372`: FX_DivAsync writes each divider register at its
+own address on the host (an index off DIVCNT cannot place a half of a
+64-bit register the port keeps as a host-order number), and
+NNSi_G3dAnmGetTexSRTRotData reads a rotation key as the two halfwords the
+blends read.  The DS source is unchanged (both under `__MWERKS__`).  The
+light set's structs move to g3d_light.h and sHandlerKeys is declared with
+its ten rows, so the data typing sees their layouts; no code changes.
+
+The step before, from `29bd76496`: CDEMO_SCENE_LoadScreenBlock turns the title
 demo's direct-colour bitmap (u16 pixels in the DS's order) into a
 big-endian host's order before copying it to VRAM, which holds the host's.
 The DS source is unchanged (the plain copy stays under `__MWERKS__`).
 
-The step before, from `2fdfac0df`: the wave archive info word's bit-fields
+The step before that, from `2fdfac0df`: the wave archive info word's bit-fields
 (fileId:24, isIndividual:1, reserved:7) are declared the other way round
 on a big-endian host, whose compiler fills bit-fields from the high bit, so
 fileId is the word's low 24 bits there too. The DS source is unchanged (the
