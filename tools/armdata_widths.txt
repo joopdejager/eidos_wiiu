@@ -49,3 +49,7 @@ FX_SinCosTable_  2  16384  FX_SinCosTable_ (s16 pairs)
 # four hidden entries, and OAM holds the DS's order (sdk/dsmem.h,
 # bw_host_in_oam), so its words are not turned
 wm_icon_HiddenOam    1  0   four hidden OAM entries, copied into OAM byte for byte
+# The function table that runs on from g_020A0830's two entries: 8-byte
+# records of a function pointer and a second word (0, or another function),
+# up to tbl_020A08B6; data_objects.json has it as 63 u16
+arm9:0x020A0838   4  124  function pointer records ({fn, fn or 0}), not halfwords

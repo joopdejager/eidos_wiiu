@@ -8,12 +8,17 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `b9e85f5dfc4717b78d0ae3b882fdc96b8afdbcc8`
+- Revision: `62c227d757f05df1e0ab44e6e361252f91597eb4`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-10-31 20:18:07 +0000
-- Subject: Declare the start menu's row table with its eight rows
+- Date: 2026-10-31 23:19:00 +0000
+- Subject: The glyph expansion table in the DS's byte order on a big-endian host
 
-The step from `e2acc490a`: gStartMenuRowInfo is declared with the eight
+The step from `b9e85f5df`: GF_FONT_SetTextColor builds the glyph
+expansion table with each u16 entry's bytes swapped on a big-endian host,
+so the decoders' native stores lay the 4bpp pixels out in the DS's order
+for BMP_Blit4bpp.  The DS source is unchanged (under `__MWERKS__`).
+
+The step before, from `e2acc490a`: gStartMenuRowInfo is declared with the eight
 rows STARTMENU_LoadRowBuffers reads, so a big-endian host's data typing
 turns them all.  A declaration only; no code changes.
 

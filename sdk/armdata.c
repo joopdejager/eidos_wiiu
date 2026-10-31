@@ -305,6 +305,32 @@ static int listed(const BwDataImage *img, u32 where)
 }
 
 /*
+ * Whether the word at `where` lies in a run the typing gives another width
+ * than a pointer's (BwDataImage.swaps, sorted by address, on every host):
+ * halfwords or 64-bit numbers are data, whatever their bytes read as.  The
+ * pointer scans skip it: FX_SinCosTable_'s (0x0FB8, 0x02FA) reads as the
+ * word 0x02FA0FB8, an address inside the static module's data.
+ */
+static int typed_not_word(const BwDataImage *img, u32 where)
+{
+    u32 lo = 0, hi = img->swap_count;
+
+    if (img->swaps == NULL) {
+        return 0;
+    }
+    while (lo < hi) {                       /* the first run ending past where */
+        u32 mid = lo + (hi - lo) / 2u;
+        if (img->swaps[mid].addr + img->swaps[mid].size <= where) {
+            lo = mid + 1u;
+        } else {
+            hi = mid;
+        }
+    }
+    return lo < img->swap_count && img->swaps[lo].addr < where + 4u
+           && img->swaps[lo].width != 4u;
+}
+
+/*
  * The host address a code pointer to the ARM9's function `f` holds: the
  * registry's answer for the function's address when a mod installed a hook
  * for it, the build's own function otherwise.
@@ -389,7 +415,7 @@ static u32 scan_code_pointers(const BwDataImage *img)
                 BwDataFn fn = NULL;
                 u32 word;
 
-                if (listed(img, a)) {
+                if (listed(img, a) || typed_not_word(img, a)) {
                     continue;
                 }
                 if (f >= 0) {
@@ -473,7 +499,8 @@ static u32 scan_data_pointers(const BwDataImage *img)
                 void *p;
                 u32 word;
 
-                if (value < lo_t || value >= hi_t || listed(img, a)) {
+                if (value < lo_t || value >= hi_t || listed(img, a)
+                    || typed_not_word(img, a)) {
                     continue;
                 }
                 p = bw_ds_try_ptr(value);

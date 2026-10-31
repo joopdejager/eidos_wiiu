@@ -136,7 +136,12 @@ data or `.bss` object the build names, to `bw_ds_ptr` of that value
 prints the count; `EIDOS_DATA_SCAN_LOG` lists each word). The range is
 narrow (0x0209D86C up to the end of `.bss`), and a word inside it that is a
 number rather than an address would be a coincidence of the same order the
-code scan accepts. Port code that takes such a word as a DS address has to
+code scan accepts.  One such coincidence is ruled out by the typing: both
+scans skip a word inside a run of halfwords or 64-bit numbers
+(`BwDataImage.swaps`, `typed_not_word`), since `FX_SinCosTable_`'s pair
+(0x0FB8, 0x02FA) reads as the word 0x02FA0FB8, an address in that range,
+and the scan turned it into a host pointer (the title's camera went wrong
+once it reached that angle). Port code that takes such a word as a DS address has to
 accept the relocated host address too: the archive name table's entries are
 the one case so far (`sdk/fs.c`, `CRYPTOi__BN_lshift1`, maps it back with
 `bw_ds_addr_of`). On the ARM9 image of the pin the scan rewrites 273 words,
