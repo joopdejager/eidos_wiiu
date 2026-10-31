@@ -8,81 +8,15 @@
  * PLAYER2 records, but those are turned too where their layout is plain.
  *
  * Every number is read from the cartridge's little-endian bytes before it
- * is turned, and a bit per halfword remembers what is turned: a record,
- * file, instrument or wave two offsets share is turned by the first and
- * skipped by the second.  A turn outside the image, or at an odd address,
- * marks the image malformed.
+ * is turned (sdk/byteturn.h): a record, file, instrument or wave two
+ * offsets share is turned by the first and skipped by the second.
  */
 
 #include <stdlib.h>
 #include <string.h>
 
+#include "byteturn.h"
 #include "sdat_order.h"
-
-typedef struct Turn {
-    u8  *p;
-    u32  n;
-    u8  *done;          /* one bit per halfword */
-    int  bad;
-} Turn;
-
-static u32 le16(const Turn *t, u32 at)
-{
-    if (t->n < 2u || at > t->n - 2u) {
-        return 0;
-    }
-    return (u32)t->p[at] | ((u32)t->p[at + 1] << 8);
-}
-
-static u32 le32(const Turn *t, u32 at)
-{
-    if (t->n < 4u || at > t->n - 4u) {
-        return 0;
-    }
-    return (u32)t->p[at] | ((u32)t->p[at + 1] << 8) | ((u32)t->p[at + 2] << 16)
-           | ((u32)t->p[at + 3] << 24);
-}
-
-static int is_done(const Turn *t, u32 at)
-{
-    return (t->done[at >> 4] >> ((at >> 1) & 7u)) & 1u;
-}
-
-static void mark(Turn *t, u32 at)
-{
-    t->done[at >> 4] |= (u8)(1u << ((at >> 1) & 7u));
-}
-
-static void fix16(Turn *t, u32 at)
-{
-    if (t->n < 2u || at > t->n - 2u || (at & 1u) != 0) {
-        t->bad = 1;
-        return;
-    }
-    if (!is_done(t, at)) {
-        bw_mem_wr16(t->p + at, (u16)le16(t, at));
-        mark(t, at);
-    }
-}
-
-static void fix32(Turn *t, u32 at)
-{
-    if (t->n < 4u || at > t->n - 4u || (at & 1u) != 0) {
-        t->bad = 1;
-        return;
-    }
-    if (!is_done(t, at)) {
-        bw_mem_wr32(t->p + at, le32(t, at));
-        mark(t, at);
-        mark(t, at + 2);
-    }
-}
-
-/* [at, at + len) inside [lo, lo + size): no overflow. */
-static int inside(u32 at, u32 len, u32 lo, u32 size)
-{
-    return at >= lo && len <= size && at - lo <= size - len;
-}
 
 /* ---- files ---------------------------------------------------------- */
 
@@ -399,21 +333,6 @@ static int fat_to_host(Turn *t, u32 fat, u32 size)
     fix32(t, fat + 8);
     fix32(t, fat + 4);
     return 0;
-}
-
-static int turn_begin(Turn *t, u8 *p, u32 n)
-{
-    t->p = p;
-    t->n = n;
-    t->bad = 0;
-    t->done = (u8 *)calloc(n / 16u + 1u, 1);
-    return t->done != NULL ? 0 : -1;
-}
-
-static int turn_end(Turn *t, int rc)
-{
-    free(t->done);
-    return rc != 0 || t->bad ? -1 : 1;
 }
 
 int bw_sdat_to_host(u8 *p, u32 n)
