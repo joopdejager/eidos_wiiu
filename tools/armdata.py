@@ -327,6 +327,23 @@ class SourceFile:
         import datalayout
         self.call_args = [c for c in datalayout.call_args(code)
                           if c[2][0] == "addr" or c[2][1] in self.decl_types]
+        # A scalar extern's declared length in bytes, when its dimensions are
+        # numbers, and the names the file subscripts itself: a byte array
+        # it indexes is read as bytes (_LongestFreeRun[bits]), a byte array
+        # it only passes on is a stand-in that says nothing.
+        self.decl_extent = {}
+        self.subscripted = set()
+        for dm in _EXTERN_DECL_RE.finditer(code):
+            w = decl_width(dm.group(1))
+            dims = re.findall(r"\[\s*(0x[0-9A-Fa-f]+|\d+)\s*\]", dm.group(0))
+            if w is not None and dims:
+                n = 1
+                for x in dims:
+                    n *= int(x, 0)
+                self.decl_extent[dm.group(2)] = n * w
+        for sm in re.finditer(r"\b([A-Za-z_]\w*)\s*\[", code):
+            if sm.group(1) in self.decl_types:
+                self.subscripted.add(sm.group(1))
         for dm in _EXTERN_DECL_RE.finditer(code):
             w = decl_width(dm.group(1))
             if w is not None:
@@ -786,7 +803,11 @@ def declared_runs(objects, sources, names, region):
     width: GXi_DmaId is `extern u32 GXi_DmaId;` and four u8 in
     data_objects.json, FX_SinCosTable_ s16 pairs and u32 there; the width is
     taken only when every declaration of every name at the address agrees,
-    since the matched code's loads come from those declarations.
+    since the matched code's loads come from those declarations, and covers
+    a declared length (`const u8 _LongestFreeRun[256]`, which the metadata
+    split into a raw object and a u32 one).  A byte declaration counts only
+    where its file subscripts the name: an `unsigned char d_X[]` the file
+    only passes on is the decomp's stand-in for "these bytes", not a type.
     tools/armdata_widths.txt wins over both, over every object that starts
     inside its extent.  Returns the runs and the addresses of the objects
     whose metadata typing they replace."""
@@ -798,6 +819,7 @@ def declared_runs(objects, sources, names, region):
         elif o["kind"] == "numeric":
             weak[int(o["addr"], 16)] = (o["size"], elem_width.get(o.get("elem"), 0))
     widths = {}
+    extent = {}
     struct_widths = {}
     for sf in sources:
         for tag, w in sf.struct_widths.items():
@@ -810,8 +832,11 @@ def declared_runs(objects, sources, names, region):
                 decls[name] = next(iter(ws))
         for name, w in decls.items():
             e = names.get(name)
-            if e is not None:
-                widths.setdefault(e["addr"], set()).add(w)
+            if e is None or (w == 1 and name not in getattr(sf, "subscripted", ())):
+                continue                    # a byte stand-in says nothing
+            widths.setdefault(e["addr"], set()).add(w)
+            extent[e["addr"]] = max(extent.get(e["addr"], 0),
+                                    getattr(sf, "decl_extent", {}).get(name, 0))
     # tools/armdata_widths.txt's entries win over everything below.  An
     # entry names a data name, or (for an object no source names, reached
     # only through a pointer) `region:0xADDRESS`, `region` being "arm9" or
@@ -838,10 +863,17 @@ def declared_runs(objects, sources, names, region):
         if addr not in weak or len(ws) != 1:
             continue
         size, typed = weak[addr]
-        w = ws.pop()
-        if w in (2, 4, 8) and w != typed and addr % min(w, 4) == 0 and size >= w:
+        size = max(size, extent.get(addr, 0))   # a declared length covers the
+        w = ws.pop()                            # objects the metadata split it into
+        inside = [a for a in sizes if addr <= a < addr + size]
+        if (w == typed and inside == [addr]) or addr % min(w, 4) != 0 or size < w:
+            continue
+        if any(a in over or a in skip for a in inside):
+            continue
+        if w in (2, 4, 8):
             out.append((addr, size - size % w, w))
-            over.add(addr)
+        over.update(inside)                     # a byte array: no swap at all
+        over.add(addr)
     # tools/armdata_widths.txt: objects their consumer reads wider.
     for addr, (f, name_size) in listed.items():
         w = int(f[1], 0)

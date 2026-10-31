@@ -444,7 +444,9 @@ class Scan:
                                             decl_types=dict(sf.decl_types),
                                             cast_types=dict(sf.cast_types),
                                             copies=dict(sf.copies),
-                                            call_args=list(sf.call_args))
+                                            call_args=list(sf.call_args),
+                                            decl_extent=dict(sf.decl_extent),
+                                            subscripted=set(sf.subscripted))
 
     def _parse_symbols(self, text):
         in_block = False
