@@ -154,25 +154,12 @@ static u8 *io_byte(u32 idx)
     return idx < BW_DS_IO_SIZE ? &g_io_lo[idx] : &g_io_hi[idx - BW_DS_IO_SIZE];
 }
 
-/*
- * Where a register access of `width` bytes at file index idx lands.  On a
- * little-endian host that is idx.  On a big-endian host the file is kept as
- * host-order 32-bit words, the order a matched u32 store leaves, so that a
- * u32 store and the u16 or u8 reads of its parts agree (IME written as a
- * word, VRAMCNT_A..D as one word, BG0HOFS/VOFS as one word): the DS byte at
- * idx is the host byte idx ^ 3, the halfword at idx is the host halfword
- * at idx ^ 2.  bw_ds_ptr_w applies the same rule to the matched code's own
- * accesses (tools/dsaddr.py --width).
- */
+/* Where a register access of `width` bytes at file index idx lands: the
+ * rule is bw_io_host_index's (sdk/dsmem.h), and bw_ds_ptr_w applies it to
+ * the matched code's own accesses (tools/dsaddr.py --width). */
 static u32 io_host(u32 idx, u32 width)
 {
-#if BW_HOST_BIG_ENDIAN
-    if (width == 1u || width == 2u) {
-        return idx ^ (4u - width);
-    }
-#endif
-    (void)width;
-    return idx;
+    return bw_io_host_index(idx, width);
 }
 
 static u8 *io_at(u32 idx, u32 width)
@@ -1030,11 +1017,14 @@ typedef char bw_u32_is_unsigned_int[(sizeof(u32) == sizeof(unsigned int)
 void *bw_ds_ptr_w(u32 addr, u32 width)
 {
 #if BW_HOST_BIG_ENDIAN
-    if (addr >> 24 == BW_DS_IO_BASE >> 24 && (width == 1u || width == 2u)) {
+    if (addr >> 24 == BW_DS_IO_BASE >> 24 && width >= 1u && width <= 4u) {
         u8 *p = (u8 *)bw_ds_ptr(addr);  /* the checks and the access hooks */
         long idx = io_index(addr, width);
 
-        return idx >= 0 && reg_find(addr) == NULL ? io_at((u32)idx, width) : p;
+        if (idx >= 0 && (u32)idx != bw_io_host_index((u32)idx, width)) {
+            return reg_find(addr) == NULL ? io_at((u32)idx, width) : p;
+        }
+        return p;
     }
 #endif
     (void)width;

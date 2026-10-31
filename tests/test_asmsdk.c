@@ -716,7 +716,7 @@ static void test_mtx(void)
 
 static volatile u32 *shared32(u32 addr)
 {
-    return (volatile u32 *)bw_ds_ptr(addr);
+    return (volatile u32 *)bw_ds_ptr_w(addr, 4);   /* a register word, as the SDK's */
 }
 
 static void test_lock_ids(void)

@@ -22,22 +22,27 @@
 #include "asmsdk.h"
 #include "../dsmem.h"
 
+/* One word of the unit's registers: through bw_ds_ptr_w, which knows where
+ * a word of a 64-bit register lives on a big-endian host (sdk/dsmem.h). */
+static u32 reg32(u32 addr)
+{
+    return *(const volatile u32 *)bw_ds_ptr_w(addr, 4);
+}
+
 void CP_SaveContext(void *context)
 {
     u8 *ctx = (u8 *)context;
-    const volatile u32 *div = (const volatile u32 *)bw_ds_ptr(0x04000290u);
-    const volatile u32 *sqrt = (const volatile u32 *)bw_ds_ptr(0x040002B8u);
     u32 w[4];
     u16 mode;
 
-    w[0] = div[0];
-    w[1] = div[1];
-    w[2] = div[2];
-    w[3] = div[3];
+    w[0] = reg32(0x04000290u);
+    w[1] = reg32(0x04000294u);
+    w[2] = reg32(0x04000298u);
+    w[3] = reg32(0x0400029Cu);
     memcpy(ctx, w, 16);
     mode = (u16)(*(const volatile u16 *)bw_ds_ptr_w(0x04000280u, sizeof(*(const volatile u16 *)0)) & 3u);
-    w[0] = sqrt[0];
-    w[1] = sqrt[1];
+    w[0] = reg32(0x040002B8u);
+    w[1] = reg32(0x040002BCu);
     memcpy(ctx + 0x10, w, 8);
     memcpy(ctx + 0x18, &mode, 2);
     mode = (u16)(*(const volatile u16 *)bw_ds_ptr_w(0x040002B0u, sizeof(*(const volatile u16 *)0)) & 1u);

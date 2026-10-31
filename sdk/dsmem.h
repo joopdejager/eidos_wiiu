@@ -174,13 +174,36 @@ void bw_io_poke(u32 addr, u32 width, u32 v);
  */
 const u8 *bw_io_file(void);
 
-static inline u32 bw_io_file_get(const u8 *file, u32 off, u32 width)
+/*
+ * Where a register access of `width` bytes at register-file offset idx
+ * lands.  On a little-endian host that is idx.  On a big-endian host the
+ * file is kept as host-order 32-bit words, the order a matched u32 store
+ * leaves, so that a u32 store and the u16 or u8 accesses of its parts agree
+ * (IME written as a word, VRAMCNT_A..D as one word): the DS byte at idx is
+ * the host byte idx ^ 3, the halfword the host halfword idx ^ 2.  The
+ * divider's and square-root unit's 64-bit registers (DIV_NUMER, DIV_DENOM,
+ * DIV_RESULT, DIVREM_RESULT, SQRT_PARAM), which the game stores and loads
+ * as u64 (FX_InvAsync's DIV_NUMER = 0x1000 << 32), are kept as host-order
+ * 64-bit words the same way: an access of `width` bytes lands at
+ * idx ^ (8 - width).
+ */
+static inline u32 bw_io_host_index(u32 idx, u32 width)
 {
 #if BW_HOST_BIG_ENDIAN
+    if ((idx >= 0x290u && idx < 0x2B0u) || (idx >= 0x2B8u && idx < 0x2C0u)) {
+        return width < 8u ? idx ^ (8u - width) : idx;
+    }
     if (width == 1u || width == 2u) {
-        off ^= 4u - width;
+        return idx ^ (4u - width);
     }
 #endif
+    (void)width;
+    return idx;
+}
+
+static inline u32 bw_io_file_get(const u8 *file, u32 off, u32 width)
+{
+    off = bw_io_host_index(off, width);
     switch (width) {
     case 1:  return file[off];
     case 2:  return bw_mem_rd16(file + off);

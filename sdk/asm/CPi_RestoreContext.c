@@ -20,25 +20,30 @@
 #include "asmsdk.h"
 #include "../dsmem.h"
 
+/* One word of the unit's registers: through bw_ds_ptr_w, which knows where
+ * a word of a 64-bit register lives on a big-endian host (sdk/dsmem.h). */
+static void reg32(u32 addr, u32 v)
+{
+    *(volatile u32 *)bw_ds_ptr_w(addr, 4) = v;
+}
+
 void CPi_RestoreContext(const void *context)
 {
     const u8 *ctx = (const u8 *)context;
-    volatile u32 *div = (volatile u32 *)bw_ds_ptr(0x04000290u);
-    volatile u32 *sqrt = (volatile u32 *)bw_ds_ptr(0x040002B8u);
     u32 w[4];
     u16 divmode;
     u16 sqrtmode;
 
     memcpy(w, ctx, 16);
-    div[0] = w[0];
-    div[1] = w[1];
-    div[2] = w[2];
-    div[3] = w[3];
+    reg32(0x04000290u, w[0]);
+    reg32(0x04000294u, w[1]);
+    reg32(0x04000298u, w[2]);
+    reg32(0x0400029Cu, w[3]);
     memcpy(&divmode, ctx + 0x18, 2);
     memcpy(&sqrtmode, ctx + 0x1A, 2);
     *(volatile u16 *)bw_ds_ptr_w(0x04000280u, sizeof(*(volatile u16 *)0)) = divmode;
     *(volatile u16 *)bw_ds_ptr_w(0x040002B0u, sizeof(*(volatile u16 *)0)) = sqrtmode;
     memcpy(w, ctx + 0x10, 8);
-    sqrt[0] = w[0];
-    sqrt[1] = w[1];
+    reg32(0x040002B8u, w[0]);
+    reg32(0x040002BCu, w[1]);
 }

@@ -314,16 +314,16 @@ static void test_names(void)
 static void div_set(u16 mode, u64 n, u64 d)
 {
     *(volatile u16 *)bw_ds_ptr_w(BW_REG_DIVCNT, sizeof(*(volatile u16 *)0)) = mode;
-    *(volatile u32 *)bw_ds_ptr(BW_REG_DIV_NUMER) = (u32)n;
-    *(volatile u32 *)bw_ds_ptr(BW_REG_DIV_NUMER + 4u) = (u32)(n >> 32);
-    *(volatile u32 *)bw_ds_ptr(BW_REG_DIV_DENOM) = (u32)d;
-    *(volatile u32 *)bw_ds_ptr(BW_REG_DIV_DENOM + 4u) = (u32)(d >> 32);
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_DIV_NUMER, 4) = (u32)n;
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_DIV_NUMER + 4u, 4) = (u32)(n >> 32);
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_DIV_DENOM, 4) = (u32)d;
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_DIV_DENOM + 4u, 4) = (u32)(d >> 32);
 }
 
 static u64 rd64(u32 addr)
 {
-    u32 lo = *(volatile u32 *)bw_ds_ptr(addr);
-    u32 hi = *(volatile u32 *)bw_ds_ptr(addr + 4u);
+    u32 lo = *(volatile u32 *)bw_ds_ptr_w(addr, 4);
+    u32 hi = *(volatile u32 *)bw_ds_ptr_w(addr + 4u, 4);
 
     return ((u64)hi << 32) | lo;
 }
@@ -337,7 +337,20 @@ static void test_divider(void)
     BW_CHECK_EQ("div 32: busy never set",
                 *(volatile u16 *)bw_ds_ptr_w(BW_REG_DIVCNT, sizeof(*(volatile u16 *)0)) & 0x8000, 0);
     BW_CHECK_EQ("div 32: signed quotient",
-                *(volatile u32 *)bw_ds_ptr(BW_REG_DIV_RESULT), 3584);
+                *(volatile u32 *)bw_ds_ptr_w(BW_REG_DIV_RESULT, 4), 3584);
+    /* FX_InvAsync's way: DIV_NUMER as one u64 store, DIV_DENOM as u32
+     * ones; 2^44 / 2.0 in 20.12 is 2^31 (FX_GetDivResult scales it).  On a
+     * big-endian host the u64 lands in the register's two words the way
+     * the DS reads them (sdk/dsmem.h, bw_io_host_index).                  */
+    *(volatile u16 *)bw_ds_ptr_w(BW_REG_DIVCNT, 2) = 1;
+    *(volatile u64 *)bw_ds_ptr_w(BW_REG_DIV_NUMER, 8) = (u64)0x1000 << 32;
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_DIV_DENOM, 4) = 0x2000;
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_DIV_DENOM + 4u, 4) = 0;
+    BW_CHECK_EQ("u64 store: DIV_NUMER as two words", rd64(BW_REG_DIV_NUMER) == ((u64)0x1000 << 32), 1);
+    BW_CHECK_EQ("u64 store: 2^44 / 2.0", *(volatile u32 *)bw_ds_ptr_w(BW_REG_DIV_RESULT, 4),
+                0x80000000u);
+    BW_CHECK_EQ("u64 load: the result as one u64",
+                *(volatile u64 *)bw_ds_ptr_w(BW_REG_DIV_RESULT, 8) == 0x80000000u, 1);
     /* 2^28 / 3584 = 74898 remainder 1024 (TP_SetCalibrateParam).          */
     div_set(0, 0x10000000u, 3584);
     BW_CHECK_EQ("div 32: 2^28/3584", rd64(BW_REG_DIV_RESULT) == 74898, 1);
@@ -375,15 +388,15 @@ static void test_divider(void)
 
     /* Square root: floor, 32- and 64-bit parameters.                       */
     *(volatile u16 *)bw_ds_ptr_w(BW_REG_SQRTCNT, sizeof(*(volatile u16 *)0)) = 0;
-    *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_PARAM) = 99;
-    *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_PARAM + 4u) = 1;
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_SQRT_PARAM, 4) = 99;
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_SQRT_PARAM + 4u, 4) = 1;
     BW_CHECK_EQ("sqrt 32: ignores the upper word",
-                *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_RESULT), 9);
+                *(volatile u32 *)bw_ds_ptr_w(BW_REG_SQRT_RESULT, 4), 9);
     *(volatile u16 *)bw_ds_ptr_w(BW_REG_SQRTCNT, sizeof(*(volatile u16 *)0)) = 1;
-    *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_PARAM) = 0xFFFFFFFFu;
-    *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_PARAM + 4u) = 0xFFFFFFFFu;
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_SQRT_PARAM, 4) = 0xFFFFFFFFu;
+    *(volatile u32 *)bw_ds_ptr_w(BW_REG_SQRT_PARAM + 4u, 4) = 0xFFFFFFFFu;
     BW_CHECK_EQ("sqrt 64: 2^64 - 1",
-                *(volatile u32 *)bw_ds_ptr(BW_REG_SQRT_RESULT), 0xFFFFFFFFu);
+                *(volatile u32 *)bw_ds_ptr_w(BW_REG_SQRT_RESULT, 4), 0xFFFFFFFFu);
 }
 
 int main(void)
