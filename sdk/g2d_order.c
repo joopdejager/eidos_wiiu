@@ -258,6 +258,23 @@ static int mcbk(Turn *t, u32 b, u32 size)
     return 0;
 }
 
+/* A word of a block that may sit at any byte: a label block of odd size
+ * (2470 of the 3274 cell files) leaves the next block, UEXT, unaligned.
+ * Nothing else points into those words, so the halfword bitset is not
+ * needed for them. */
+static void fix32_any(Turn *t, u32 at)
+{
+    if ((at & 1u) == 0) {
+        fix32(t, at);
+        return;
+    }
+    if (t->n < 4u || at > t->n - 4u) {
+        t->bad = 1;
+        return;
+    }
+    bw_mem_wr32(t->p + at, le32(t, at));
+}
+
 int bw_g2d_to_host(void *file)
 {
 #if BW_HOST_BIG_ENDIAN
@@ -297,14 +314,14 @@ int bw_g2d_to_host(void *file)
         case TAG_MCBK: rc = mcbk(&t, b, size - 8); break;
         case TAG_UEXT:
             for (b = pos + 8; b + 4 <= pos + size; b += 4) {
-                fix32(&t, b);
+                fix32_any(&t, b);
             }
             break;
         default:                            /* labels, or a block no reader opens */
             break;
         }
-        fix32(&t, pos);                     /* the tag, compared as a number */
-        fix32(&t, pos + 4);
+        fix32_any(&t, pos);                 /* the tag, compared as a number */
+        fix32_any(&t, pos + 4);
         pos += size;
     }
     fix32(&t, 0);
