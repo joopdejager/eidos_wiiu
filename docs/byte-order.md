@@ -101,6 +101,12 @@ NNSi_G2dLoadTexPlttDsOrder (MCSS's sprites), TEXT_TEXTURE_UploadPalette
 memory is the same: ov119 packs 4bpp texels into u16s with native stores
 and turns the page before uploading it, and ov021's talk balloon tile and
 palette, declared u32[], are kept as bytes (`tools/armdata_widths.txt`).
+The game's colour arithmetic on a 3D file's palette (the field's grey
+tints, the battle stage fades, ov133's fitting room) turns the palette to
+the host's order around the arithmetic and stores the result in the DS's;
+a G2D palette queued for texture palette memory through the VRAM transfer
+manager (the field cut-in, the evolution demo's grid) is turned to the
+DS's order before it is queued, since the transfer happens later.
 
 **MCSS's cell headers (NCEC)** have no NITRO header, so no extractor turns
 them; MCSS turns each one into native values after loading it.  Its flag

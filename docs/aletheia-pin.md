@@ -8,12 +8,17 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `2fe8c50f0627d187e617501d83cf3811e6e2887f`
+- Revision: `3001f84abdfce16b7fcb83f323861cf8776994e5`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 09:05:02 +0000
-- Subject: Upload host-built palettes and texels to texture memory in the DS's order
+- Date: 2026-11-01 10:51:40 +0000
+- Subject: Keep texture palettes in the DS's order around the game's colour arithmetic
 
-The step from `ca1d06c8e`: TEXT_TEXTURE_UploadPalette and ov119's trade screen
+The step from `2fe8c50f0`: the field's tints, the battle stage fades, ov133's
+fitting room, the field cut-in and the evolution demo keep the palettes
+they compute or queue for texture palette memory in the DS's order on a
+big-endian host.
+
+The step before, from `ca1d06c8e`: TEXT_TEXTURE_UploadPalette and ov119's trade screen
 turn their palettes, and its texel pages, to the DS's order around their
 uploads to texture memory on a big-endian host.
 
