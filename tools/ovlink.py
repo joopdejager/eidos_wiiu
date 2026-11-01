@@ -1543,6 +1543,7 @@ class OvState:
         self.data = {}             # name -> dict
         self.objects = {}          # name -> dict (host objects, conflicts)
         self.relocs = []           # {where, target, kind, ...}
+        self.scan = []             # (addr, size): data scanned for code pointers
         self.swaps = []            # (addr, size, width): the data's 16- and
                                    # 32-bit runs, for a big-endian host
         self.code_literals = {}    # value -> symbol expression
@@ -2715,6 +2716,15 @@ class Link:
                                       [u.scan.widths for u in st.units], st.data, ov.tag)
         st.swaps = [(a, n, w) for a, n, w in runs
                     if ov.lo <= a and a + n <= ov.code_end]
+        # The overlay's data, from its first data object to the end of its
+        # file, is scanned at load for code pointers the metadata types as
+        # plain words (sdk/armdata.c, scan_code_pointers): a word equal to
+        # one of the overlay's functions' DS entries, Thumb bit included.
+        # ov204's command table holds four such entries, the decomp's
+        # followers its host build defines as functions of their own.
+        starts = [int(o["addr"], 16) for o in objects
+                  if ov.lo <= int(o["addr"], 16) < ov.code_end]
+        st.scan = [(min(starts), ov.code_end - min(starts))] if starts else []
         # Static initialisers.
         for a in overlay_table.KNOWN_SINIT.get(ov.id, [])[:ov.sinit_count]:
             st.sinits.append(self.own_code(st, a & ~1))
@@ -2926,6 +2936,13 @@ def write_overlay_c(link, st, path):
     for r in st.relocs:
         if r["kind"] == "CODE":
             funcs[r["target"]] = r.get("fn")
+    # Every function the overlay defines, for the load-time scan of its data
+    # (k_scan): a word equal to one's DS entry is a code pointer the metadata
+    # did not list (ov204's command table reaches four this way).
+    if st.scan:
+        for ad, n in st.at.items():
+            if ov.owns(ad) and not any((k & ~1) == ad for k in funcs):
+                funcs[ad | (1 if ad in st.thumb else 0)] = link.own(st, n)
     stub_names = {link.own(st, n) for n in st.stubs.values()}
     slot_orig = {s["original"]: s for s in st.mod_slots if s["original"] not in stub_names}
     externs = sorted({n for n in list(funcs.values()) + list(st.code_literals.values()) + st.sinits
@@ -3059,6 +3076,13 @@ def write_overlay_c(link, st, path):
         w("    { 0, 0, NULL, NULL }")
     w("};")
     w("")
+    if st.scan:
+        w("/* The data scanned for code pointers the metadata does not list. */")
+        w("static const BwDataRange k_scan[] = {")
+        for a, n in st.scan:
+            w("    { 0x%08Xu, 0x%Xu, 0u, 1 }," % (a, n))
+        w("};")
+        w("")
     w("/* The 16- and 32-bit runs of the data, for a big-endian host. */")
     w("static const BwDataSwap k_swap[] = {")
     for a, n, wd in st.swaps:
@@ -3075,7 +3099,10 @@ def write_overlay_c(link, st, path):
     w("    k_funcs, %du," % len(funcs))
     w("    k_anchors, %du," % len(anchors))
     w("    k_objects, %du," % len(objs))
-    w("    NULL, 0u,")
+    if st.scan:
+        w("    k_scan, %du," % len(st.scan))
+    else:
+        w("    NULL, 0u,")
     w("    k_swap, %du" % len(st.swaps))
     w("};")
     w("")

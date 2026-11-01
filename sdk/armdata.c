@@ -415,6 +415,12 @@ static u32 scan_code_pointers(const BwDataImage *img)
                 BwDataFn fn = NULL;
                 u32 word;
 
+                if (f < 0 && img->overlay >= 0 && (value & 1u) != 0u) {
+                    /* an overlay's Thumb function its table lists without
+                     * the Thumb bit (the listing did not mark it) */
+                    f = func_at(img, value & ~1u);
+                }
+
                 if (listed(img, a) || typed_not_word(img, a)) {
                     continue;
                 }
@@ -432,7 +438,11 @@ static u32 scan_code_pointers(const BwDataImage *img)
                 }
                 word = (u32)(uintptr_t)fn;
                 memcpy(w, &word, 4);
-                remember_code_word(w, word, &img->funcs[f]);
+                if (img->overlay < 0) {
+                    /* the ARM9's own words only: an overlay's are the
+                     * overlay layer's (bw_data_relocate) */
+                    remember_code_word(w, word, &img->funcs[f]);
+                }
                 done_add(a);
                 n++;
             }
