@@ -448,3 +448,10 @@ ov203:0x021BFCBC  1  4   demo BG row 3: u8 size, mode, bases
 ov203:0x021BFCC0  4  4   demo BG row 3: char size
 ov203:0x021BFCC4  1  4   demo BG row 3: u8 palette, priority, area
 ov203:0x021BFCC8  4  12  demo BG row 3: mosaic, type, enable
+# The SDK's texture VRAM start tables (gx_load3d.c): sTexStartAddrTable,
+# sixteen {u16 blk1, blk2, szBlk1}, and sTexPlttStartAddrTable, eight u16,
+# which data_objects.json splits into strings, zeros and bytes; a big-endian
+# host read GX_BeginLoadTex's LCDC addresses byte-swapped and the texture
+# upload for banks A and B wrote through null
+sTexStartAddrTable      2  96  SDK texture image LCDC start table ({u16 x3}[16])
+sTexPlttStartAddrTable  2  16  SDK texture palette LCDC start table (u16[8])
