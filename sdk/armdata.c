@@ -514,10 +514,26 @@ static u32 scan_data_pointers(const BwDataImage *img)
     u32 lo_t = 0xFFFFFFFFu, hi_t = 0, n = 0;
     u32 i, s, k;
 
-    if (bw_ds_identity() || img->scan == NULL || img->overlay >= 0) {
+    if (bw_ds_identity() || img->scan == NULL) {
         return 0;
     }
-    for (i = 0; i < img->name_count; i++) {
+    if (img->overlay >= 0) {
+        /* An overlay: a word pointing into its own data or .bss, from its
+         * first scanned byte to the end of its image (ov203's demo table
+         * d_021C185C, which data_objects.json calls four zero bytes, holds
+         * pointers to the camera records after it). */
+        for (s = 0; s < img->scan_count; s++) {
+            if (img->scan[s].addr < lo_t) {
+                lo_t = img->scan[s].addr;
+            }
+        }
+        for (k = 0; k < img->range_count; k++) {
+            if (img->ranges[k].addr + img->ranges[k].size > hi_t) {
+                hi_t = img->ranges[k].addr + img->ranges[k].size;
+            }
+        }
+    }
+    for (i = 0; img->overlay < 0 && i < img->name_count; i++) {
         const BwDataName *nm = &img->names[i];
         u32 end;
 
@@ -531,7 +547,7 @@ static u32 scan_data_pointers(const BwDataImage *img)
             hi_t = end;
         }
     }
-    for (s = 0; s < img->scan_count; s++) {
+    for (s = 0; img->overlay < 0 && s < img->scan_count; s++) {
         if (img->scan[s].addr >> 24 == BW_DS_MAIN_BASE >> 24 && img->scan[s].addr < lo_t) {
             lo_t = img->scan[s].addr;
         }
@@ -558,7 +574,8 @@ static u32 scan_data_pointers(const BwDataImage *img)
                 u32 word;
 
                 if (value < lo_t || value >= hi_t || listed(img, a)
-                    || typed_not_word(img, a)) {
+                    || (img->overlay < 0 ? typed_not_word(img, a)
+                                         : typed_width(img, a) == 8u)) {
                     continue;
                 }
                 p = bw_ds_try_ptr(value);

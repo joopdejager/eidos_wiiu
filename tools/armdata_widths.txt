@@ -181,3 +181,83 @@ ov204:0x021BFE14  2  8   intro light record: vector, colour
 # typedef (IntroActorPos, u16 v[12]) the declaration typing does not follow;
 # as words a big-endian host gave the actors a garbage animation sequence
 gIntroActorPos  2  24  intro actor init params (u16[12])
+# ov203's demo table d_021C185C (data_objects.json: four zero bytes):
+# nineteen rows of {camera record, three resource pointers, u32 kind}; the
+# pointers are rewritten by the load-time data scan (sdk/armdata.c)
+ov203:0x021C185C  4  380  ov203 demo rows ({cam, res[3], kind}[19])
+# and the eighteen 0x54-byte camera records they point at, which it types
+# as words: u16 ICA member id and three halfwords (the flag word at +6),
+# six ints (the clip parameters), 23 halfwords, six bytes (texture sizes);
+# as words a big-endian host read the ICA member id as 0xFFFF
+ov203:0x021C0ACC  2  8   demo camera record 0: id, halfwords, flags
+ov203:0x021C0AD4  4  24  demo camera record 0: clip ints
+ov203:0x021C0AEC  2  46  demo camera record 0: halfwords
+ov203:0x021C0B1A  1  6   demo camera record 0: texture size bytes
+ov203:0x021C0B20  2  8   demo camera record 1: id, halfwords, flags
+ov203:0x021C0B28  4  24  demo camera record 1: clip ints
+ov203:0x021C0B40  2  46  demo camera record 1: halfwords
+ov203:0x021C0B6E  1  6   demo camera record 1: texture size bytes
+ov203:0x021C0B74  2  8   demo camera record 2: id, halfwords, flags
+ov203:0x021C0B7C  4  24  demo camera record 2: clip ints
+ov203:0x021C0B94  2  46  demo camera record 2: halfwords
+ov203:0x021C0BC2  1  6   demo camera record 2: texture size bytes
+ov203:0x021C0BC8  2  8   demo camera record 3: id, halfwords, flags
+ov203:0x021C0BD0  4  24  demo camera record 3: clip ints
+ov203:0x021C0BE8  2  46  demo camera record 3: halfwords
+ov203:0x021C0C16  1  6   demo camera record 3: texture size bytes
+ov203:0x021C0C1C  2  8   demo camera record 4: id, halfwords, flags
+ov203:0x021C0C24  4  24  demo camera record 4: clip ints
+ov203:0x021C0C3C  2  46  demo camera record 4: halfwords
+ov203:0x021C0C6A  1  6   demo camera record 4: texture size bytes
+ov203:0x021C0C70  2  8   demo camera record 5: id, halfwords, flags
+ov203:0x021C0C78  4  24  demo camera record 5: clip ints
+ov203:0x021C0C90  2  46  demo camera record 5: halfwords
+ov203:0x021C0CBE  1  6   demo camera record 5: texture size bytes
+ov203:0x021C0CC4  2  8   demo camera record 6: id, halfwords, flags
+ov203:0x021C0CCC  4  24  demo camera record 6: clip ints
+ov203:0x021C0CE4  2  46  demo camera record 6: halfwords
+ov203:0x021C0D12  1  6   demo camera record 6: texture size bytes
+ov203:0x021C0D18  2  8   demo camera record 7: id, halfwords, flags
+ov203:0x021C0D20  4  24  demo camera record 7: clip ints
+ov203:0x021C0D38  2  46  demo camera record 7: halfwords
+ov203:0x021C0D66  1  6   demo camera record 7: texture size bytes
+ov203:0x021C0D6C  2  8   demo camera record 8: id, halfwords, flags
+ov203:0x021C0D74  4  24  demo camera record 8: clip ints
+ov203:0x021C0D8C  2  46  demo camera record 8: halfwords
+ov203:0x021C0DBA  1  6   demo camera record 8: texture size bytes
+ov203:0x021C0DC0  2  8   demo camera record 9: id, halfwords, flags
+ov203:0x021C0DC8  4  24  demo camera record 9: clip ints
+ov203:0x021C0DE0  2  46  demo camera record 9: halfwords
+ov203:0x021C0E0E  1  6   demo camera record 9: texture size bytes
+ov203:0x021C0E14  2  8   demo camera record 10: id, halfwords, flags
+ov203:0x021C0E1C  4  24  demo camera record 10: clip ints
+ov203:0x021C0E34  2  46  demo camera record 10: halfwords
+ov203:0x021C0E62  1  6   demo camera record 10: texture size bytes
+ov203:0x021C0E68  2  8   demo camera record 11: id, halfwords, flags
+ov203:0x021C0E70  4  24  demo camera record 11: clip ints
+ov203:0x021C0E88  2  46  demo camera record 11: halfwords
+ov203:0x021C0EB6  1  6   demo camera record 11: texture size bytes
+ov203:0x021C0EBC  2  8   demo camera record 12: id, halfwords, flags
+ov203:0x021C0EC4  4  24  demo camera record 12: clip ints
+ov203:0x021C0EDC  2  46  demo camera record 12: halfwords
+ov203:0x021C0F0A  1  6   demo camera record 12: texture size bytes
+ov203:0x021C0F10  2  8   demo camera record 13: id, halfwords, flags
+ov203:0x021C0F18  4  24  demo camera record 13: clip ints
+ov203:0x021C0F30  2  46  demo camera record 13: halfwords
+ov203:0x021C0F5E  1  6   demo camera record 13: texture size bytes
+ov203:0x021C0F64  2  8   demo camera record 14: id, halfwords, flags
+ov203:0x021C0F6C  4  24  demo camera record 14: clip ints
+ov203:0x021C0F84  2  46  demo camera record 14: halfwords
+ov203:0x021C0FB2  1  6   demo camera record 14: texture size bytes
+ov203:0x021C0FB8  2  8   demo camera record 15: id, halfwords, flags
+ov203:0x021C0FC0  4  24  demo camera record 15: clip ints
+ov203:0x021C0FD8  2  46  demo camera record 15: halfwords
+ov203:0x021C1006  1  6   demo camera record 15: texture size bytes
+ov203:0x021C100C  2  8   demo camera record 16: id, halfwords, flags
+ov203:0x021C1014  4  24  demo camera record 16: clip ints
+ov203:0x021C102C  2  46  demo camera record 16: halfwords
+ov203:0x021C105A  1  6   demo camera record 16: texture size bytes
+ov203:0x021C1060  2  8   demo camera record 17: id, halfwords, flags
+ov203:0x021C1068  4  24  demo camera record 17: clip ints
+ov203:0x021C1080  2  46  demo camera record 17: halfwords
+ov203:0x021C10AE  1  6   demo camera record 17: texture size bytes

@@ -8,12 +8,15 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `f451332714691ad7455649663dc4d60be31cccdd`
+- Revision: `0975c30b717b1b9fabb761e4e83a36e8dbff71be`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 15:35:20 +0000
-- Subject: Spell ov020's LCDC VRAM clear as an address literal on a host
+- Date: 2026-11-01 16:07:21 +0000
+- Subject: Declare the demo camera record's flag bit-fields in reverse on a big-endian host
 
-The step from `ad36aad7f`: ov020's two LCDC VRAM clears name 0x06800000 as a
+The step from `f45133271`: ov203's struct Cam declares its flag bit-fields in
+reverse on a big-endian host.
+
+The step before, from `ad36aad7f`: ov020's two LCDC VRAM clears name 0x06800000 as a
 literal in the host build, which the host translates.
 
 The step before, from `75c0a4809`: the declaration change is reverted; the port types
