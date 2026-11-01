@@ -594,3 +594,23 @@ ov203:0x021C1094  2  2   demo camera record 17: fog offset
 ov203:0x021C1096  1  8   demo camera record 17: fog table
 ov203:0x021C109E  2  16  demo camera record 17: edge colours
 ov203:0x021C10AE  1  6   demo camera record 17: texture sizes
+# and the exit command lists (each row's res[1], DEMO3D_CMDSYS_Delete runs
+# them as the demo ends), the same records
+ov203:0x021C04F4  4  40    demo exit command list (1 records)
+ov203:0x021C0544  4  40    demo exit command list (1 records)
+ov203:0x021C056C  4  40    demo exit command list (1 records)
+ov203:0x021C05BC  4  40    demo exit command list (1 records)
+ov203:0x021C060C  4  40    demo exit command list (1 records)
+ov203:0x021C0634  4  40    demo exit command list (1 records)
+ov203:0x021C065C  4  40    demo exit command list (1 records)
+ov203:0x021C0684  4  40    demo exit command list (1 records)
+ov203:0x021C06AC  4  40    demo exit command list (1 records)
+ov203:0x021C06D4  4  40    demo exit command list (1 records)
+ov203:0x021C0724  4  40    demo exit command list (1 records)
+ov203:0x021C07FC  4  80    demo exit command list (2 records)
+ov203:0x021C08EC  4  80    demo exit command list (2 records)
+ov203:0x021C093C  4  80    demo exit command list (2 records)
+ov203:0x021C098C  4  80    demo exit command list (2 records)
+ov203:0x021C09DC  4  80    demo exit command list (2 records)
+ov203:0x021C0A2C  4  80    demo exit command list (2 records)
+ov203:0x021C0A7C  4  80    demo exit command list (2 records)
