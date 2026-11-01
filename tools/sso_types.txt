@@ -67,3 +67,6 @@ SPLTextureResource   an SPA texture's header; texels and palettes are bytes the 
 spl_emitter.c:VramResource  SPL_EMITTER_FreeNodeToHeap's view of that header (nns_g2d_oam_manager.c has its own VramResource, host order)
 SPLTextureParam      the texture's parameter word, there and in the SPLTexture it is copied into raw (a word load and store keep the DS's bytes)
 particle.c:BlkInner   PARTICLE_EMITTER_SetEmitPos's view of the SPA record (emitterBasePos)
+mcss.c:McssSysFlags  the MCSS system's flag word: MCSS_SetOrthoMode sets bit 0 with masks, the draw reads it as orthoMode (a runtime word, stored in the DS's order so the masks and the bit-fields agree)
+mcss.c:McssFlags     an MCSS object's flag word: masks set loaded (0x2000), alpha, the shadow alpha and more; MCSS_Draw reads the bit-fields
+mcss.c:McssRequestFlags  its request word, the same two views

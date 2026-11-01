@@ -8,12 +8,16 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `6614f5d26bb6fa5232aa04d0922327eb0e380205`
+- Revision: `ef759127f6d42586dc862d926cef7197bc8cb961`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 04:48:14 +0000
-- Subject: Turn a loaded NCEC member into native values on a host
+- Date: 2026-11-01 05:23:28 +0000
+- Subject: Name MCSS's system flag union and the vanish bit on a host
 
-The step from `482c794ee`: MCSS_LoadResource and MCSS_LoadResourceShared turn the
+The step from `6614f5d26`: McssSys's flag union is named McssSysFlags in the host
+build, and MCSS_SetVanishFlag/MCSS_ResetVanishFlag set vanishFlag by name,
+so the MCSS flag words can be stored in the DS's order.
+
+The step before, from `482c794ee`: MCSS_LoadResource and MCSS_LoadResourceShared turn the
 NCEC cell header member they load (no NITRO header, so no extractor turns
 it) into native values on a host.
 
