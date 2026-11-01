@@ -60,3 +60,8 @@ arm9:0x020A0838   4  124  function pointer records ({fn, fn or 0}), not halfword
 # overran the caller's 30-entry array.  (ov204's list, gIntroWaveArcCount,
 # is typed by its metadata.)
 ov194:0x021F557C  4  40  name entry wave archive list: count, three proc pointers, six ids
+# ov204's intro scenario tables, reached only through gIntroScenarioTables'
+# pointers: eleven arrays of 24-byte command rows (a handler tag, four
+# argument words, a flags word) that INTRO_CMD_RunCommands reads as words;
+# data_objects.json has them as bytes
+ov204:0x021C0008  4  2280  intro scenario command rows (IntroCommand[])

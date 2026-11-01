@@ -8,12 +8,16 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `239867129831c125fb500751d85778522b319e8c`
+- Revision: `482c794ee2a2fa4b6a8773e38d1fc46eb45591dc`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 03:21:20 +0000
-- Subject: Read the SPL particle archives in the DS's order on a big-endian host
+- Date: 2026-11-01 04:02:42 +0000
+- Subject: Read the intro command row's accepted flag as bit 0 of its word on a host
 
-The step from `62c227d75`: the SPA files stay in the DS's order and a
+The step from `239867129`: INTRO_CMD_AddCommand returns bit 0 of the row's tail
+word on a host instead of an unsigned char bit-field over it, which a
+big-endian host places at the top of the first byte.
+
+The step before, from `62c227d75`: the SPA files stay in the DS's order and a
 big-endian host reads them through the types in `tools/sso_types.txt`.
 Host branches: the emitter record's vectors are declared as the record's
 own structs, two masks on the emitter's misc word name its bit-fields, and
