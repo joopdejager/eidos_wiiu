@@ -69,3 +69,28 @@ ov204:0x021C0008  4  2280  intro scenario command rows (IntroCommand[])
 # (archive, members, heap mode) that MCSS_Add reads; intro_cmd.c declares
 # it as bytes and data_objects.json has it as u8
 gIntroMcssArg  4  0  intro MCSS add work (McssAddWork)
+# INTRO_GRAPHIC_InitBg's four BG rows: a layer word, a BgTemplate, two
+# words (44 bytes).  intro_graphic.c declares them unsigned[][11], but the
+# template's words at +0x10 and +0x18 are four u8 each (screen size, colour
+# mode, screen and character base; extended palette, priority, area over),
+# which a word swap reverses: the intro's BG1 and BG3 came out wrong
+ov204:0x021BFF1C  4  20  intro BG row 0: layer, scroll, screen buffer
+ov204:0x021BFF30  1  4   intro BG row 0: u8 size, mode, bases
+ov204:0x021BFF34  4  4   intro BG row 0: char size
+ov204:0x021BFF38  1  4   intro BG row 0: u8 palette, priority, area
+ov204:0x021BFF3C  4  12  intro BG row 0: mosaic, two words
+ov204:0x021BFF48  4  20  intro BG row 1: layer, scroll, screen buffer
+ov204:0x021BFF5C  1  4   intro BG row 1: u8 size, mode, bases
+ov204:0x021BFF60  4  4   intro BG row 1: char size
+ov204:0x021BFF64  1  4   intro BG row 1: u8 palette, priority, area
+ov204:0x021BFF68  4  12  intro BG row 1: mosaic, two words
+ov204:0x021BFF74  4  20  intro BG row 2: layer, scroll, screen buffer
+ov204:0x021BFF88  1  4   intro BG row 2: u8 size, mode, bases
+ov204:0x021BFF8C  4  4   intro BG row 2: char size
+ov204:0x021BFF90  1  4   intro BG row 2: u8 palette, priority, area
+ov204:0x021BFF94  4  12  intro BG row 2: mosaic, two words
+ov204:0x021BFFA0  4  20  intro BG row 3: layer, scroll, screen buffer
+ov204:0x021BFFB4  1  4   intro BG row 3: u8 size, mode, bases
+ov204:0x021BFFB8  4  4   intro BG row 3: char size
+ov204:0x021BFFBC  1  4   intro BG row 3: u8 palette, priority, area
+ov204:0x021BFFC0  4  12  intro BG row 3: mosaic, two words
