@@ -317,7 +317,17 @@ static int listed(const BwDataImage *img, u32 where)
  * pointer scans skip it: FX_SinCosTable_'s (0x0FB8, 0x02FA) reads as the
  * word 0x02FA0FB8, an address inside the static module's data.
  */
+static u32 typed_width(const BwDataImage *img, u32 where);
+
 static int typed_not_word(const BwDataImage *img, u32 where)
+{
+    u32 w = typed_width(img, where);
+
+    return w != 0u && w != 4u;
+}
+
+/* The width of the swap run holding the word at `where`, or 0. */
+static u32 typed_width(const BwDataImage *img, u32 where)
 {
     u32 lo = 0, hi = img->swap_count;
 
@@ -333,7 +343,7 @@ static int typed_not_word(const BwDataImage *img, u32 where)
         }
     }
     return lo < img->swap_count && img->swaps[lo].addr < where + 4u
-           && img->swaps[lo].width != 4u;
+           ? img->swaps[lo].width : 0u;
 }
 
 /*
@@ -440,7 +450,17 @@ static u32 scan_code_pointers(const BwDataImage *img)
                     f = func_at(img, value & ~1u);
                 }
 
-                if (listed(img, a) || typed_not_word(img, a)) {
+                if (listed(img, a)) {
+                    continue;
+                }
+                if (img->overlay < 0 ? typed_not_word(img, a)
+                                     : typed_width(img, a) == 8u) {
+                    /* An overlay's data is typed coarsely: data_objects.json
+                     * and the declarations call whole tables u16 (ov092's
+                     * pickup items run over its EVENT_BATTLE_RETURN proc
+                     * table), so a word there equal to a function's entry
+                     * is still taken as a code pointer.  swap_to_host
+                     * leaves a word this rewrites alone. */
                     continue;
                 }
                 if (f >= 0) {
@@ -605,7 +625,8 @@ static void swap_to_host(const BwDataImage *img)
         for (a = s->addr; a + s->width <= s->addr + s->size; a += s->width) {
             u8 *p;
 
-            if (s->width == 4u && done_has(a)) {
+            if ((s->width == 4u || s->width == 2u) && done_has(a & ~3u)) {
+                /* a pointer word the relocation or the scan wrote */
                 continue;
             }
             p = (u8 *)bw_ds_try_ptr(a);
