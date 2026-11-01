@@ -8,12 +8,15 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `ad36aad7f1098d19cf072c6ce73178a73e2aba58`
+- Revision: `f451332714691ad7455649663dc4d60be31cccdd`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 13:40:35 +0000
-- Subject: Revert the name entry screen's BgTemplate declaration
+- Date: 2026-11-01 15:35:20 +0000
+- Subject: Spell ov020's LCDC VRAM clear as an address literal on a host
 
-The step from `75c0a4809`: the declaration change is reverted; the port types
+The step from `ad36aad7f`: ov020's two LCDC VRAM clears name 0x06800000 as a
+literal in the host build, which the host translates.
+
+The step before, from `75c0a4809`: the declaration change is reverted; the port types
 the rows in tools/armdata_widths.txt.
 
 The step before, from `3001f84ab`: ov194's BG rows declare their template as struct
