@@ -74,6 +74,23 @@ ARM9 data's image of hidden entries (`wm_icon_HiddenOam`) is not turned.
 The few places that take a field's address or store raw words into an
 entry have host branches in the decomp.
 
+**The particle archives (SPA) stay in the DS's order.** An SPA file's
+emitter records are read through bit-fields over their words, and through
+other views of the same words: SPL_EMITTER_SetupResource shifts the
+bit-field words as integers and reads the misc word a byte at a time, and
+the renderers declare bit-fields of their own over the record.  Byte
+swapping cannot reconcile those on a big-endian host, where GCC allocates
+bit-fields from the top bit; the DS's order with
+`#pragma scalar_storage_order little-endian`, which lays bit-fields out from
+the bottom bit as on the DS, does.  So no extractor turns an SPA file and
+every view of one (the file header, the record and its blocks, the
+behaviours, the texture headers) is in `tools/sso_types.txt`; an entry
+spelled `unit.c:Type` applies in that source only.  A record's two vectors
+are aggregates of a type that keeps the host's order, so the record
+declares its own in the host build.  Where the game masks or shifts one of
+its own runtime words that it also declares bit-fields over (an emitter's
+misc word), the host build names the bit-field instead.
+
 **VRAM and palette RAM** hold the host's order: the game's own stores
 there are native, and the palettes and screens it copies in come from
 turned NITRO files. Raw 16-bit data copied in from an archive member with

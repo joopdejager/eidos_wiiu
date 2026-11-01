@@ -32,3 +32,38 @@ GXOamAttr            an OAM entry: attr0..attr3, the attr01/attr23 words and the
 OamAttr              clact.c's and nns_g2d_renderer.c's own copies of that view (attr01 and its bit-fields)
 OamEntry             double3Ddisp.c's view of an entry (two words, or attr01 and attr2, attr3)
 GXOamAffine          the affine parameters, the fourth halfword of four entries, loaded into OAM
+SPLFileHeader        an SPL particle archive (SPA): its file header (the files stay in the DS's order: no extractor turns them)
+VramHeapHeader       SPL_EMITTER_FreeNodeToHeap's view of that header (record and texture counts)
+SPLResourceHeader    an SPA emitter record's 0x58-byte header, bit-fields and words
+SPLResourceFlags     the record's flags word
+VramNodeFlags        SPL_EMITTER_FreeNodeToHeap's view of that word (which blocks follow the record)
+VramResourceHeader   SPL_EMITTER_SetupResource's view of the record (words, shifts on the bit-field words, bytes)
+VramAllocClass       SPL_EMITTER_FreeTexNode's view of the record (flags, lifetimes)
+RigDescriptor        the renderers' view of the record
+SubFlags             its flags word, two views
+SubZeroFlags         one of them
+SubDescBits          the other
+Sub28Flags           the record's misc word, as the renderers read it
+SPLScaleAnim         the scale animation block after a record
+SPLCurveInOut        its curve, and the alpha animation's
+SPLColorAnim         the colour animation block
+SPLCurveInPeakOut    its curve
+SPLAlphaAnim         the alpha animation block
+SPLTexAnim           the texture animation block
+SPLChildResource     the child particles' block
+SPLChildResourceFlags its flags halfword
+ParticleDesc         SPLEmitter_EmitChildren's view of the child block
+ParticleDescFlags    its flags halfword
+RigDescriptorHw      the renderers' view of the child block
+SubHwFlags           its flags halfword
+SubSelFlags          its second misc word
+VramSub14            SPL_EMITTER_SetupResource's view of the child block (its second misc word)
+RandomVecRange       the gravity and random behaviour blocks (s16 x, y, z and a fourth)
+ScaledVecSource      the magnet behaviour block
+AxisAngleKey         the spin behaviour block
+InterpTargetParam    the collision plane behaviour block (a word, a halfword, bit-fields)
+LerpSource           the convergence behaviour block
+SPLTextureResource   an SPA texture's header; texels and palettes are bytes the port's texture decoder reads as the DS's
+spl_emitter.c:VramResource  SPL_EMITTER_FreeNodeToHeap's view of that header (nns_g2d_oam_manager.c has its own VramResource, host order)
+SPLTextureParam      the texture's parameter word, there and in the SPLTexture it is copied into raw (a word load and store keep the DS's bytes)
+particle.c:BlkInner   PARTICLE_EMITTER_SetEmitPos's view of the SPA record (emitterBasePos)

@@ -8,12 +8,18 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `62c227d757f05df1e0ab44e6e361252f91597eb4`
+- Revision: `239867129831c125fb500751d85778522b319e8c`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-10-31 23:19:00 +0000
-- Subject: The glyph expansion table in the DS's byte order on a big-endian host
+- Date: 2026-11-01 03:21:20 +0000
+- Subject: Read the SPL particle archives in the DS's order on a big-endian host
 
-The step from `b9e85f5df`: GF_FONT_SetTextColor builds the glyph
+The step from `62c227d75`: the SPA files stay in the DS's order and a
+big-endian host reads them through the types in `tools/sso_types.txt`.
+Host branches: the emitter record's vectors are declared as the record's
+own structs, two masks on the emitter's misc word name its bit-fields, and
+particle.c reads and stores the file a byte at a time.
+
+The step before, from `b9e85f5df`: GF_FONT_SetTextColor builds the glyph
 expansion table with each u16 entry's bytes swapped on a big-endian host,
 so the decoders' native stores lay the 4bpp pixels out in the DS's order
 for BMP_Blit4bpp.  The DS source is unchanged (under `__MWERKS__`).

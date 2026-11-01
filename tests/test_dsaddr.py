@@ -798,6 +798,15 @@ class SsoLines(unittest.TestCase):
         out = dsaddr._sso_types(src, "unit.c")
         self.assertIn('#line 2 "unit.c"\nstruct LzHeader', out)
 
+    def test_unit_entry(self):
+        # spl_emitter.c:VramResource is an SPA view there; another source's
+        # VramResource keeps the host order
+        src = "struct VramResource {\n  unsigned v;\n};\n"
+        out = dsaddr._sso_types(src, "/x/game/arm9/spl_emitter.c")
+        self.assertIn("scalar_storage_order little-endian", out)
+        out = dsaddr._sso_types(src, "/x/game/arm9/nns_g2d_oam_manager.c")
+        self.assertEqual(out, src)
+
 
 if __name__ == "__main__":
     main()

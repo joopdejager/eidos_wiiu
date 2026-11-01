@@ -104,7 +104,10 @@ SSO_TYPES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 _SSO_TYPES = None
 
 
-def _sso_type_names():
+def _sso_type_names(name=None):
+    """The listed type names that apply in the source `name` (all of them
+    when None): an entry spelled unit.c:Type applies only in the source of
+    that file name, for a tag another source gives a different type."""
     global _SSO_TYPES
     if _SSO_TYPES is None:
         _SSO_TYPES = []
@@ -112,8 +115,11 @@ def _sso_type_names():
             for line in f:
                 line = line.split("#", 1)[0].split()
                 if line:
-                    _SSO_TYPES.append(line[0])
-    return _SSO_TYPES
+                    unit, _, t = line[0].rpartition(":")
+                    _SSO_TYPES.append((unit, t))
+    base = None if name is None else os.path.basename(name.replace("\\", "/"))
+    return [t for unit, t in _SSO_TYPES
+            if not unit or name is None or unit == base]
 
 
 def _definition_span(src, name):
@@ -165,7 +171,7 @@ def _sso_types(src, name):
     also reaches the anonymous structs nested in a union).  Line numbers are
     kept with #line."""
     spans = []
-    for t in _sso_type_names():
+    for t in _sso_type_names(name):
         spans += _definition_span(src, t)
     if not spans:
         return src
