@@ -14,7 +14,7 @@
 # both.  An object no
 # source names (reached only through a pointer) is listed as region:address,
 # arm9:0xXXXXXXXX or ovNNN:0xXXXXXXXX (overlays share their windows), where
-# a data object of that region starts.
+# a data object of that region starts, or anywhere with a length given.
 _ArenaTableTwl   4  0   GFL_HEAP_Init reads {u32 size, u32 unk} records (sdk/game_globals.c, BwEnvRes)
 _ArenaTableDs    4  0   the same table for the DS
 _MainSaveDesc    4  0   BACKUP_SYSTEM_Create reads it as SaveDataParam (six 32-bit words); declared as the incomplete struct SaveAreaDesc
@@ -53,3 +53,10 @@ wm_icon_HiddenOam    1  0   four hidden OAM entries, copied into OAM byte for by
 # records of a function pointer and a second word (0, or another function),
 # up to tbl_020A08B6; data_objects.json has it as 63 u16
 arm9:0x020A0838   4  124  function pointer records ({fn, fn or 0}), not halfwords
+# The name entry's wave archive list, which STARTMENU_NewGameIntroInit
+# (ov088) reads out of the loaded ov194: a u32 count, three proc pointers,
+# then six u32 wave archive ids.  Only ov088 declares it, and it lies
+# inside a raw object of data_objects.json, so its count read unturned and
+# overran the caller's 30-entry array.  (ov204's list, gIntroWaveArcCount,
+# is typed by its metadata.)
+ov194:0x021F557C  4  40  name entry wave archive list: count, three proc pointers, six ids

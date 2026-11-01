@@ -903,7 +903,11 @@ def declared_runs(objects, sources, names, region, data_relocs=None):
                     listed[names[f[0]]["addr"]] = (f, names[f[0]].get("size"))
                 else:
                     am = re.fullmatch(r"([a-z0-9]+):0x([0-9A-Fa-f]{8})", f[0])
-                    if am and am.group(1) == region and int(am.group(2), 16) in sizes:
+                    sized = len(f) > 2 and f[2].isdigit() and int(f[2]) > 0
+                    if am and am.group(1) == region and (int(am.group(2), 16) in sizes
+                                                         or sized):
+                        # where an object starts, or anywhere with a length
+                        # (a table inside a raw object of the metadata's)
                         listed[int(am.group(2), 16)] = (f, None)
     skip = set(listed)
     out, over = layout_runs(objects, sources, names, skip, data_relocs)
