@@ -191,76 +191,40 @@ ov203:0x021C185C  4  380  ov203 demo rows ({cam, res[3], kind}[19])
 # as words a big-endian host read the ICA member id as 0xFFFF
 ov203:0x021C0ACC  2  8   demo camera record 0: id, halfwords, flags
 ov203:0x021C0AD4  4  24  demo camera record 0: clip ints
-ov203:0x021C0AEC  2  46  demo camera record 0: halfwords
-ov203:0x021C0B1A  1  6   demo camera record 0: texture size bytes
 ov203:0x021C0B20  2  8   demo camera record 1: id, halfwords, flags
 ov203:0x021C0B28  4  24  demo camera record 1: clip ints
-ov203:0x021C0B40  2  46  demo camera record 1: halfwords
-ov203:0x021C0B6E  1  6   demo camera record 1: texture size bytes
 ov203:0x021C0B74  2  8   demo camera record 2: id, halfwords, flags
 ov203:0x021C0B7C  4  24  demo camera record 2: clip ints
-ov203:0x021C0B94  2  46  demo camera record 2: halfwords
-ov203:0x021C0BC2  1  6   demo camera record 2: texture size bytes
 ov203:0x021C0BC8  2  8   demo camera record 3: id, halfwords, flags
 ov203:0x021C0BD0  4  24  demo camera record 3: clip ints
-ov203:0x021C0BE8  2  46  demo camera record 3: halfwords
-ov203:0x021C0C16  1  6   demo camera record 3: texture size bytes
 ov203:0x021C0C1C  2  8   demo camera record 4: id, halfwords, flags
 ov203:0x021C0C24  4  24  demo camera record 4: clip ints
-ov203:0x021C0C3C  2  46  demo camera record 4: halfwords
-ov203:0x021C0C6A  1  6   demo camera record 4: texture size bytes
 ov203:0x021C0C70  2  8   demo camera record 5: id, halfwords, flags
 ov203:0x021C0C78  4  24  demo camera record 5: clip ints
-ov203:0x021C0C90  2  46  demo camera record 5: halfwords
-ov203:0x021C0CBE  1  6   demo camera record 5: texture size bytes
 ov203:0x021C0CC4  2  8   demo camera record 6: id, halfwords, flags
 ov203:0x021C0CCC  4  24  demo camera record 6: clip ints
-ov203:0x021C0CE4  2  46  demo camera record 6: halfwords
-ov203:0x021C0D12  1  6   demo camera record 6: texture size bytes
 ov203:0x021C0D18  2  8   demo camera record 7: id, halfwords, flags
 ov203:0x021C0D20  4  24  demo camera record 7: clip ints
-ov203:0x021C0D38  2  46  demo camera record 7: halfwords
-ov203:0x021C0D66  1  6   demo camera record 7: texture size bytes
 ov203:0x021C0D6C  2  8   demo camera record 8: id, halfwords, flags
 ov203:0x021C0D74  4  24  demo camera record 8: clip ints
-ov203:0x021C0D8C  2  46  demo camera record 8: halfwords
-ov203:0x021C0DBA  1  6   demo camera record 8: texture size bytes
 ov203:0x021C0DC0  2  8   demo camera record 9: id, halfwords, flags
 ov203:0x021C0DC8  4  24  demo camera record 9: clip ints
-ov203:0x021C0DE0  2  46  demo camera record 9: halfwords
-ov203:0x021C0E0E  1  6   demo camera record 9: texture size bytes
 ov203:0x021C0E14  2  8   demo camera record 10: id, halfwords, flags
 ov203:0x021C0E1C  4  24  demo camera record 10: clip ints
-ov203:0x021C0E34  2  46  demo camera record 10: halfwords
-ov203:0x021C0E62  1  6   demo camera record 10: texture size bytes
 ov203:0x021C0E68  2  8   demo camera record 11: id, halfwords, flags
 ov203:0x021C0E70  4  24  demo camera record 11: clip ints
-ov203:0x021C0E88  2  46  demo camera record 11: halfwords
-ov203:0x021C0EB6  1  6   demo camera record 11: texture size bytes
 ov203:0x021C0EBC  2  8   demo camera record 12: id, halfwords, flags
 ov203:0x021C0EC4  4  24  demo camera record 12: clip ints
-ov203:0x021C0EDC  2  46  demo camera record 12: halfwords
-ov203:0x021C0F0A  1  6   demo camera record 12: texture size bytes
 ov203:0x021C0F10  2  8   demo camera record 13: id, halfwords, flags
 ov203:0x021C0F18  4  24  demo camera record 13: clip ints
-ov203:0x021C0F30  2  46  demo camera record 13: halfwords
-ov203:0x021C0F5E  1  6   demo camera record 13: texture size bytes
 ov203:0x021C0F64  2  8   demo camera record 14: id, halfwords, flags
 ov203:0x021C0F6C  4  24  demo camera record 14: clip ints
-ov203:0x021C0F84  2  46  demo camera record 14: halfwords
-ov203:0x021C0FB2  1  6   demo camera record 14: texture size bytes
 ov203:0x021C0FB8  2  8   demo camera record 15: id, halfwords, flags
 ov203:0x021C0FC0  4  24  demo camera record 15: clip ints
-ov203:0x021C0FD8  2  46  demo camera record 15: halfwords
-ov203:0x021C1006  1  6   demo camera record 15: texture size bytes
 ov203:0x021C100C  2  8   demo camera record 16: id, halfwords, flags
 ov203:0x021C1014  4  24  demo camera record 16: clip ints
-ov203:0x021C102C  2  46  demo camera record 16: halfwords
-ov203:0x021C105A  1  6   demo camera record 16: texture size bytes
 ov203:0x021C1060  2  8   demo camera record 17: id, halfwords, flags
 ov203:0x021C1068  4  24  demo camera record 17: clip ints
-ov203:0x021C1080  2  46  demo camera record 17: halfwords
-ov203:0x021C10AE  1  6   demo camera record 17: texture size bytes
 # ov203's demo unit selectors (each row's res[2] points at Selector
 # {groups, u16 count, u16 selector}[kind]), their groups and pairs
 # {pointer, u32 count} and the u16 resource id lists, walked from the rows
@@ -482,3 +446,151 @@ ov203:0x021C2130  4  1040  demo command list (26 records)
 ov203:0x021C2540  4  1200  demo command list (30 records)
 ov203:0x021C29F0  4  1240  demo command list (31 records)
 ov203:0x021C2EC8  4  3280  demo command list (82 records)
+# the camera records' tail, as struct Demo3dEngineRecord reads it: two s16
+# clip offsets, int depth offset, u16 clear/alpha/polygon/depth/fog colour,
+# u8 fog alpha and slope, u16 fog offset, u8 fog table[8], u16 edge colours[8],
+# then six texture size bytes
+ov203:0x021C0AEC  2  4   demo camera record 0: clip offsets
+ov203:0x021C0AF0  4  4   demo camera record 0: depth offset
+ov203:0x021C0AF4  2  10  demo camera record 0: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0AFE  1  2   demo camera record 0: fog alpha, slope
+ov203:0x021C0B00  2  2   demo camera record 0: fog offset
+ov203:0x021C0B02  1  8   demo camera record 0: fog table
+ov203:0x021C0B0A  2  16  demo camera record 0: edge colours
+ov203:0x021C0B1A  1  6   demo camera record 0: texture sizes
+ov203:0x021C0B40  2  4   demo camera record 1: clip offsets
+ov203:0x021C0B44  4  4   demo camera record 1: depth offset
+ov203:0x021C0B48  2  10  demo camera record 1: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0B52  1  2   demo camera record 1: fog alpha, slope
+ov203:0x021C0B54  2  2   demo camera record 1: fog offset
+ov203:0x021C0B56  1  8   demo camera record 1: fog table
+ov203:0x021C0B5E  2  16  demo camera record 1: edge colours
+ov203:0x021C0B6E  1  6   demo camera record 1: texture sizes
+ov203:0x021C0B94  2  4   demo camera record 2: clip offsets
+ov203:0x021C0B98  4  4   demo camera record 2: depth offset
+ov203:0x021C0B9C  2  10  demo camera record 2: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0BA6  1  2   demo camera record 2: fog alpha, slope
+ov203:0x021C0BA8  2  2   demo camera record 2: fog offset
+ov203:0x021C0BAA  1  8   demo camera record 2: fog table
+ov203:0x021C0BB2  2  16  demo camera record 2: edge colours
+ov203:0x021C0BC2  1  6   demo camera record 2: texture sizes
+ov203:0x021C0BE8  2  4   demo camera record 3: clip offsets
+ov203:0x021C0BEC  4  4   demo camera record 3: depth offset
+ov203:0x021C0BF0  2  10  demo camera record 3: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0BFA  1  2   demo camera record 3: fog alpha, slope
+ov203:0x021C0BFC  2  2   demo camera record 3: fog offset
+ov203:0x021C0BFE  1  8   demo camera record 3: fog table
+ov203:0x021C0C06  2  16  demo camera record 3: edge colours
+ov203:0x021C0C16  1  6   demo camera record 3: texture sizes
+ov203:0x021C0C3C  2  4   demo camera record 4: clip offsets
+ov203:0x021C0C40  4  4   demo camera record 4: depth offset
+ov203:0x021C0C44  2  10  demo camera record 4: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0C4E  1  2   demo camera record 4: fog alpha, slope
+ov203:0x021C0C50  2  2   demo camera record 4: fog offset
+ov203:0x021C0C52  1  8   demo camera record 4: fog table
+ov203:0x021C0C5A  2  16  demo camera record 4: edge colours
+ov203:0x021C0C6A  1  6   demo camera record 4: texture sizes
+ov203:0x021C0C90  2  4   demo camera record 5: clip offsets
+ov203:0x021C0C94  4  4   demo camera record 5: depth offset
+ov203:0x021C0C98  2  10  demo camera record 5: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0CA2  1  2   demo camera record 5: fog alpha, slope
+ov203:0x021C0CA4  2  2   demo camera record 5: fog offset
+ov203:0x021C0CA6  1  8   demo camera record 5: fog table
+ov203:0x021C0CAE  2  16  demo camera record 5: edge colours
+ov203:0x021C0CBE  1  6   demo camera record 5: texture sizes
+ov203:0x021C0CE4  2  4   demo camera record 6: clip offsets
+ov203:0x021C0CE8  4  4   demo camera record 6: depth offset
+ov203:0x021C0CEC  2  10  demo camera record 6: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0CF6  1  2   demo camera record 6: fog alpha, slope
+ov203:0x021C0CF8  2  2   demo camera record 6: fog offset
+ov203:0x021C0CFA  1  8   demo camera record 6: fog table
+ov203:0x021C0D02  2  16  demo camera record 6: edge colours
+ov203:0x021C0D12  1  6   demo camera record 6: texture sizes
+ov203:0x021C0D38  2  4   demo camera record 7: clip offsets
+ov203:0x021C0D3C  4  4   demo camera record 7: depth offset
+ov203:0x021C0D40  2  10  demo camera record 7: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0D4A  1  2   demo camera record 7: fog alpha, slope
+ov203:0x021C0D4C  2  2   demo camera record 7: fog offset
+ov203:0x021C0D4E  1  8   demo camera record 7: fog table
+ov203:0x021C0D56  2  16  demo camera record 7: edge colours
+ov203:0x021C0D66  1  6   demo camera record 7: texture sizes
+ov203:0x021C0D8C  2  4   demo camera record 8: clip offsets
+ov203:0x021C0D90  4  4   demo camera record 8: depth offset
+ov203:0x021C0D94  2  10  demo camera record 8: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0D9E  1  2   demo camera record 8: fog alpha, slope
+ov203:0x021C0DA0  2  2   demo camera record 8: fog offset
+ov203:0x021C0DA2  1  8   demo camera record 8: fog table
+ov203:0x021C0DAA  2  16  demo camera record 8: edge colours
+ov203:0x021C0DBA  1  6   demo camera record 8: texture sizes
+ov203:0x021C0DE0  2  4   demo camera record 9: clip offsets
+ov203:0x021C0DE4  4  4   demo camera record 9: depth offset
+ov203:0x021C0DE8  2  10  demo camera record 9: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0DF2  1  2   demo camera record 9: fog alpha, slope
+ov203:0x021C0DF4  2  2   demo camera record 9: fog offset
+ov203:0x021C0DF6  1  8   demo camera record 9: fog table
+ov203:0x021C0DFE  2  16  demo camera record 9: edge colours
+ov203:0x021C0E0E  1  6   demo camera record 9: texture sizes
+ov203:0x021C0E34  2  4   demo camera record 10: clip offsets
+ov203:0x021C0E38  4  4   demo camera record 10: depth offset
+ov203:0x021C0E3C  2  10  demo camera record 10: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0E46  1  2   demo camera record 10: fog alpha, slope
+ov203:0x021C0E48  2  2   demo camera record 10: fog offset
+ov203:0x021C0E4A  1  8   demo camera record 10: fog table
+ov203:0x021C0E52  2  16  demo camera record 10: edge colours
+ov203:0x021C0E62  1  6   demo camera record 10: texture sizes
+ov203:0x021C0E88  2  4   demo camera record 11: clip offsets
+ov203:0x021C0E8C  4  4   demo camera record 11: depth offset
+ov203:0x021C0E90  2  10  demo camera record 11: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0E9A  1  2   demo camera record 11: fog alpha, slope
+ov203:0x021C0E9C  2  2   demo camera record 11: fog offset
+ov203:0x021C0E9E  1  8   demo camera record 11: fog table
+ov203:0x021C0EA6  2  16  demo camera record 11: edge colours
+ov203:0x021C0EB6  1  6   demo camera record 11: texture sizes
+ov203:0x021C0EDC  2  4   demo camera record 12: clip offsets
+ov203:0x021C0EE0  4  4   demo camera record 12: depth offset
+ov203:0x021C0EE4  2  10  demo camera record 12: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0EEE  1  2   demo camera record 12: fog alpha, slope
+ov203:0x021C0EF0  2  2   demo camera record 12: fog offset
+ov203:0x021C0EF2  1  8   demo camera record 12: fog table
+ov203:0x021C0EFA  2  16  demo camera record 12: edge colours
+ov203:0x021C0F0A  1  6   demo camera record 12: texture sizes
+ov203:0x021C0F30  2  4   demo camera record 13: clip offsets
+ov203:0x021C0F34  4  4   demo camera record 13: depth offset
+ov203:0x021C0F38  2  10  demo camera record 13: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0F42  1  2   demo camera record 13: fog alpha, slope
+ov203:0x021C0F44  2  2   demo camera record 13: fog offset
+ov203:0x021C0F46  1  8   demo camera record 13: fog table
+ov203:0x021C0F4E  2  16  demo camera record 13: edge colours
+ov203:0x021C0F5E  1  6   demo camera record 13: texture sizes
+ov203:0x021C0F84  2  4   demo camera record 14: clip offsets
+ov203:0x021C0F88  4  4   demo camera record 14: depth offset
+ov203:0x021C0F8C  2  10  demo camera record 14: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0F96  1  2   demo camera record 14: fog alpha, slope
+ov203:0x021C0F98  2  2   demo camera record 14: fog offset
+ov203:0x021C0F9A  1  8   demo camera record 14: fog table
+ov203:0x021C0FA2  2  16  demo camera record 14: edge colours
+ov203:0x021C0FB2  1  6   demo camera record 14: texture sizes
+ov203:0x021C0FD8  2  4   demo camera record 15: clip offsets
+ov203:0x021C0FDC  4  4   demo camera record 15: depth offset
+ov203:0x021C0FE0  2  10  demo camera record 15: clear, alpha, polygon, depth, fog colour
+ov203:0x021C0FEA  1  2   demo camera record 15: fog alpha, slope
+ov203:0x021C0FEC  2  2   demo camera record 15: fog offset
+ov203:0x021C0FEE  1  8   demo camera record 15: fog table
+ov203:0x021C0FF6  2  16  demo camera record 15: edge colours
+ov203:0x021C1006  1  6   demo camera record 15: texture sizes
+ov203:0x021C102C  2  4   demo camera record 16: clip offsets
+ov203:0x021C1030  4  4   demo camera record 16: depth offset
+ov203:0x021C1034  2  10  demo camera record 16: clear, alpha, polygon, depth, fog colour
+ov203:0x021C103E  1  2   demo camera record 16: fog alpha, slope
+ov203:0x021C1040  2  2   demo camera record 16: fog offset
+ov203:0x021C1042  1  8   demo camera record 16: fog table
+ov203:0x021C104A  2  16  demo camera record 16: edge colours
+ov203:0x021C105A  1  6   demo camera record 16: texture sizes
+ov203:0x021C1080  2  4   demo camera record 17: clip offsets
+ov203:0x021C1084  4  4   demo camera record 17: depth offset
+ov203:0x021C1088  2  10  demo camera record 17: clear, alpha, polygon, depth, fog colour
+ov203:0x021C1092  1  2   demo camera record 17: fog alpha, slope
+ov203:0x021C1094  2  2   demo camera record 17: fog offset
+ov203:0x021C1096  1  8   demo camera record 17: fog table
+ov203:0x021C109E  2  16  demo camera record 17: edge colours
+ov203:0x021C10AE  1  6   demo camera record 17: texture sizes

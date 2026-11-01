@@ -8,12 +8,15 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `0975c30b717b1b9fabb761e4e83a36e8dbff71be`
+- Revision: `9f4fac5c29260887070605ac88d4813c73da98c6`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 16:07:21 +0000
-- Subject: Declare the demo camera record's flag bit-fields in reverse on a big-endian host
+- Date: 2026-11-01 19:35:34 +0000
+- Subject: Declare the demo record's render bit-fields in reverse on a big-endian host
 
-The step from `f45133271`: ov203's struct Cam declares its flag bit-fields in
+The step from `0975c30b7`: ov203's struct Demo3dEngineRecord declares its three
+u16 bit-field groups in reverse on a big-endian host.
+
+The step before, from `f45133271`: ov203's struct Cam declares its flag bit-fields in
 reverse on a big-endian host.
 
 The step before, from `ad36aad7f`: ov020's two LCDC VRAM clears name 0x06800000 as a
