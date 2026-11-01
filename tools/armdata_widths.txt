@@ -422,3 +422,29 @@ ov203:0x021C07A8  2  4    demo unit halfwords
 ov203:0x021C07AC  4  4    demo unit words
 ov203:0x021C07B0  2  4    demo unit halfwords
 ov203:0x021C07B4  4  72   demo unit words
+# ov203's VRAM bank sets d_021BFBC4 (two DispVram, twelve u32 enums each),
+# declared unsigned char[][48] and typed u8: a big-endian host mapped no
+# bank for textures and the fly-over's texture upload wrote through null
+ov203:0x021BFBC4  4  96  demo VRAM bank sets (DispVram[2])
+# and its four BG rows d_021BFC24 ({layer, BgTemplate, type, enable}, 44
+# bytes), the template's words at +0x10 and +0x18 four u8 each
+ov203:0x021BFC24  4  20  demo BG row 0: layer, scroll, screen buffer
+ov203:0x021BFC38  1  4   demo BG row 0: u8 size, mode, bases
+ov203:0x021BFC3C  4  4   demo BG row 0: char size
+ov203:0x021BFC40  1  4   demo BG row 0: u8 palette, priority, area
+ov203:0x021BFC44  4  12  demo BG row 0: mosaic, type, enable
+ov203:0x021BFC50  4  20  demo BG row 1: layer, scroll, screen buffer
+ov203:0x021BFC64  1  4   demo BG row 1: u8 size, mode, bases
+ov203:0x021BFC68  4  4   demo BG row 1: char size
+ov203:0x021BFC6C  1  4   demo BG row 1: u8 palette, priority, area
+ov203:0x021BFC70  4  12  demo BG row 1: mosaic, type, enable
+ov203:0x021BFC7C  4  20  demo BG row 2: layer, scroll, screen buffer
+ov203:0x021BFC90  1  4   demo BG row 2: u8 size, mode, bases
+ov203:0x021BFC94  4  4   demo BG row 2: char size
+ov203:0x021BFC98  1  4   demo BG row 2: u8 palette, priority, area
+ov203:0x021BFC9C  4  12  demo BG row 2: mosaic, type, enable
+ov203:0x021BFCA8  4  20  demo BG row 3: layer, scroll, screen buffer
+ov203:0x021BFCBC  1  4   demo BG row 3: u8 size, mode, bases
+ov203:0x021BFCC0  4  4   demo BG row 3: char size
+ov203:0x021BFCC4  1  4   demo BG row 3: u8 palette, priority, area
+ov203:0x021BFCC8  4  12  demo BG row 3: mosaic, type, enable
