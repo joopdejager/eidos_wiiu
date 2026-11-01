@@ -8,12 +8,16 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `3001f84abdfce16b7fcb83f323861cf8776994e5`
+- Revision: `75c0a480900d5a60bf961d7ad119636e2fdbe8b1`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 10:51:40 +0000
-- Subject: Keep texture palettes in the DS's order around the game's colour arithmetic
+- Date: 2026-11-01 13:24:53 +0000
+- Subject: Declare the name entry screen's BG template as struct BgTemplate on a host
 
-The step from `2fe8c50f0`: the field's tints, the battle stage fades, ov133's
+The step from `3001f84ab`: ov194's BG rows declare their template as struct
+BgTemplate in the host build, so the data typing keeps its u8 fields as
+bytes.
+
+The step before, from `2fe8c50f0`: the field's tints, the battle stage fades, ov133's
 fitting room, the field cut-in and the evolution demo keep the palettes
 they compute or queue for texture palette memory in the DS's order on a
 big-endian host.
