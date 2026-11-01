@@ -8,12 +8,15 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `75c0a480900d5a60bf961d7ad119636e2fdbe8b1`
+- Revision: `ad36aad7f1098d19cf072c6ce73178a73e2aba58`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 13:24:53 +0000
-- Subject: Declare the name entry screen's BG template as struct BgTemplate on a host
+- Date: 2026-11-01 13:40:35 +0000
+- Subject: Revert the name entry screen's BgTemplate declaration
 
-The step from `3001f84ab`: ov194's BG rows declare their template as struct
+The step from `75c0a4809`: the declaration change is reverted; the port types
+the rows in tools/armdata_widths.txt.
+
+The step before, from `3001f84ab`: ov194's BG rows declare their template as struct
 BgTemplate in the host build, so the data typing keeps its u8 fields as
 bytes.
 

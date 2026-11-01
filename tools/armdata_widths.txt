@@ -108,3 +108,47 @@ sTalkMsgWinPalette  1  0  ov021 talk balloon texture palette (DS order)
 # them over (the battle called BTL_CLIENT_StepUpdateIllusion's DS address)
 gServerCommandHandlers  4  744  ov093 battle server command handlers ({code, fn}[0x5D])
 ov093:0x021F03C4  4  72  ov093 battle client function pointer table after them
+# ov194's name entry BG rows (NAMEIN_GRAPHIC_InitBg): eight of {id, a
+# BgTemplate, type, enabled}, 44 bytes each, the template declared as eight
+# words; its words at +0x10 and +0x18 of the template are four u8 each, which
+# a word swap reversed (BG_SYS_InitBgLayer asked for a huge screen buffer)
+ov194:0x021F5600  4  20  name entry BG row 0: id, scroll, screen buffer
+ov194:0x021F5614  1  4   name entry BG row 0: u8 size, mode, bases
+ov194:0x021F5618  4  4   name entry BG row 0: char size
+ov194:0x021F561C  1  4   name entry BG row 0: u8 palette, priority, area
+ov194:0x021F5620  4  12  name entry BG row 0: mosaic, type, enabled
+ov194:0x021F562C  4  20  name entry BG row 1: id, scroll, screen buffer
+ov194:0x021F5640  1  4   name entry BG row 1: u8 size, mode, bases
+ov194:0x021F5644  4  4   name entry BG row 1: char size
+ov194:0x021F5648  1  4   name entry BG row 1: u8 palette, priority, area
+ov194:0x021F564C  4  12  name entry BG row 1: mosaic, type, enabled
+ov194:0x021F5658  4  20  name entry BG row 2: id, scroll, screen buffer
+ov194:0x021F566C  1  4   name entry BG row 2: u8 size, mode, bases
+ov194:0x021F5670  4  4   name entry BG row 2: char size
+ov194:0x021F5674  1  4   name entry BG row 2: u8 palette, priority, area
+ov194:0x021F5678  4  12  name entry BG row 2: mosaic, type, enabled
+ov194:0x021F5684  4  20  name entry BG row 3: id, scroll, screen buffer
+ov194:0x021F5698  1  4   name entry BG row 3: u8 size, mode, bases
+ov194:0x021F569C  4  4   name entry BG row 3: char size
+ov194:0x021F56A0  1  4   name entry BG row 3: u8 palette, priority, area
+ov194:0x021F56A4  4  12  name entry BG row 3: mosaic, type, enabled
+ov194:0x021F56B0  4  20  name entry BG row 4: id, scroll, screen buffer
+ov194:0x021F56C4  1  4   name entry BG row 4: u8 size, mode, bases
+ov194:0x021F56C8  4  4   name entry BG row 4: char size
+ov194:0x021F56CC  1  4   name entry BG row 4: u8 palette, priority, area
+ov194:0x021F56D0  4  12  name entry BG row 4: mosaic, type, enabled
+ov194:0x021F56DC  4  20  name entry BG row 5: id, scroll, screen buffer
+ov194:0x021F56F0  1  4   name entry BG row 5: u8 size, mode, bases
+ov194:0x021F56F4  4  4   name entry BG row 5: char size
+ov194:0x021F56F8  1  4   name entry BG row 5: u8 palette, priority, area
+ov194:0x021F56FC  4  12  name entry BG row 5: mosaic, type, enabled
+ov194:0x021F5708  4  20  name entry BG row 6: id, scroll, screen buffer
+ov194:0x021F571C  1  4   name entry BG row 6: u8 size, mode, bases
+ov194:0x021F5720  4  4   name entry BG row 6: char size
+ov194:0x021F5724  1  4   name entry BG row 6: u8 palette, priority, area
+ov194:0x021F5728  4  12  name entry BG row 6: mosaic, type, enabled
+ov194:0x021F5734  4  20  name entry BG row 7: id, scroll, screen buffer
+ov194:0x021F5748  1  4   name entry BG row 7: u8 size, mode, bases
+ov194:0x021F574C  4  4   name entry BG row 7: char size
+ov194:0x021F5750  1  4   name entry BG row 7: u8 palette, priority, area
+ov194:0x021F5754  4  12  name entry BG row 7: mosaic, type, enabled
