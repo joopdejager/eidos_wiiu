@@ -8,12 +8,16 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `482c794ee2a2fa4b6a8773e38d1fc46eb45591dc`
+- Revision: `6614f5d26bb6fa5232aa04d0922327eb0e380205`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 04:02:42 +0000
-- Subject: Read the intro command row's accepted flag as bit 0 of its word on a host
+- Date: 2026-11-01 04:48:14 +0000
+- Subject: Turn a loaded NCEC member into native values on a host
 
-The step from `239867129`: INTRO_CMD_AddCommand returns bit 0 of the row's tail
+The step from `482c794ee`: MCSS_LoadResource and MCSS_LoadResourceShared turn the
+NCEC cell header member they load (no NITRO header, so no extractor turns
+it) into native values on a host.
+
+The step before, from `239867129`: INTRO_CMD_AddCommand returns bit 0 of the row's tail
 word on a host instead of an unsigned char bit-field over it, which a
 big-endian host places at the top of the first byte.
 
