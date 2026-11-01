@@ -8,12 +8,16 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `ca1d06c8e9b0b5c909df8500bdbad7452844dc86`
+- Revision: `2fe8c50f0627d187e617501d83cf3811e6e2887f`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 06:06:32 +0000
-- Subject: Load G2D palettes into texture palette memory in the DS's order on a big-endian host
+- Date: 2026-11-01 09:05:02 +0000
+- Subject: Upload host-built palettes and texels to texture memory in the DS's order
 
-The step from `ef759127f`: NNSi_G2dLoadVramResourceBySel and
+The step from `ca1d06c8e`: TEXT_TEXTURE_UploadPalette and ov119's trade screen
+turn their palettes, and its texel pages, to the DS's order around their
+uploads to texture memory on a big-endian host.
+
+The step before, from `ef759127f`: NNSi_G2dLoadVramResourceBySel and
 NNSi_G2dLoadVramResourceList turn a G2D palette to the DS's order around
 its upload to texture palette memory on a big-endian host.
 

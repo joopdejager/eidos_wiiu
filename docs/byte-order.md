@@ -95,8 +95,12 @@ misc word), the host build names the bit-field instead.
 decoder reads it (engine/g3d/texture.c), as little-endian bytes, and the 3D
 files' and particle archives' palettes are uploaded as they are.  A G2D
 palette, turned to the host's order when its file loaded, is turned back
-around its upload to texture palette memory (the decomp's
-NNSi_G2dLoadTexPlttDsOrder, for MCSS's sprites).
+around its upload to texture palette memory: the decomp's
+NNSi_G2dLoadTexPlttDsOrder (MCSS's sprites), TEXT_TEXTURE_UploadPalette
+(the field cut-in's name plate) and ov119's trade screen.  Texture image
+memory is the same: ov119 packs 4bpp texels into u16s with native stores
+and turns the page before uploading it, and ov021's talk balloon tile and
+palette, declared u32[], are kept as bytes (`tools/armdata_widths.txt`).
 
 **MCSS's cell headers (NCEC)** have no NITRO header, so no extractor turns
 them; MCSS turns each one into native values after loading it.  Its flag

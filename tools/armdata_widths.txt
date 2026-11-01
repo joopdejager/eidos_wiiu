@@ -94,3 +94,9 @@ ov204:0x021BFFB4  1  4   intro BG row 3: u8 size, mode, bases
 ov204:0x021BFFB8  4  4   intro BG row 3: char size
 ov204:0x021BFFBC  1  4   intro BG row 3: u8 palette, priority, area
 ov204:0x021BFFC0  4  12  intro BG row 3: mosaic, two words
+# ov021's talk balloon tile and palette, which TALKMSGWIN_UploadTexture
+# copies into texture memory as they are: texel bytes and a palette in the
+# DS's order, which texture memory holds (the port's texture decoder reads
+# it so).  talkmsgwin.c declares both u32[], so a word swap reversed them
+sTalkMsgWinTexture  1  0  ov021 talk balloon texel tile (4bpp, bytes)
+sTalkMsgWinPalette  1  0  ov021 talk balloon texture palette (DS order)
