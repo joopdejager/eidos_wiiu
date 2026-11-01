@@ -455,3 +455,8 @@ ov203:0x021BFCC8  4  12  demo BG row 3: mosaic, type, enable
 # upload for banks A and B wrote through null
 sTexStartAddrTable      2  96  SDK texture image LCDC start table ({u16 x3}[16])
 sTexPlttStartAddrTable  2  16  SDK texture palette LCDC start table (u16[8])
+# ov203's demo unit animation table d_021C0348, G3dUtilAnimeSetup
+# {u16 anmResIdx, u16 anmDatIdx}[5] that DEMO3D_DATA_Create gives every
+# unit; declared unsigned[] and so turned as words, which swapped each pair
+# and gave G3D_SYSTEM_CreateAnime the model file at index 1
+d_021C0348  2  20  demo unit animation setups ({u16, u16}[5])
