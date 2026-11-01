@@ -152,3 +152,28 @@ ov194:0x021F5748  1  4   name entry BG row 7: u8 size, mode, bases
 ov194:0x021F574C  4  4   name entry BG row 7: char size
 ov194:0x021F5750  1  4   name entry BG row 7: u8 palette, priority, area
 ov194:0x021F5754  4  12  name entry BG row 7: mosaic, type, enabled
+# ov204's two light sets (INTRO_GRAPHIC's G3D_LIGHT_CreateSlots): a
+# LightSetDesc {records pointer, u8 count} and four 10-byte LightSlotDesc
+# records {u8 slot, pad, u16 x4} each, which data_objects.json types as
+# words: a big-endian host read a count of 0 and misaligned records, set no
+# lights, and the intro's lit player model drew black
+ov204:0x021BFD4C  4  4   intro light set: records pointer
+ov204:0x021BFD50  1  4   intro light set: u8 count, pad
+ov204:0x021BFD54  4  4   intro light set: records pointer
+ov204:0x021BFD58  1  4   intro light set: u8 count, pad
+ov204:0x021BFDCC  1  2   intro light record: u8 slot, pad
+ov204:0x021BFDCE  2  8   intro light record: vector, colour
+ov204:0x021BFDD6  1  2   intro light record: u8 slot, pad
+ov204:0x021BFDD8  2  8   intro light record: vector, colour
+ov204:0x021BFDE0  1  2   intro light record: u8 slot, pad
+ov204:0x021BFDE2  2  8   intro light record: vector, colour
+ov204:0x021BFDEA  1  2   intro light record: u8 slot, pad
+ov204:0x021BFDEC  2  8   intro light record: vector, colour
+ov204:0x021BFDF4  1  2   intro light record: u8 slot, pad
+ov204:0x021BFDF6  2  8   intro light record: vector, colour
+ov204:0x021BFDFE  1  2   intro light record: u8 slot, pad
+ov204:0x021BFE00  2  8   intro light record: vector, colour
+ov204:0x021BFE08  1  2   intro light record: u8 slot, pad
+ov204:0x021BFE0A  2  8   intro light record: vector, colour
+ov204:0x021BFE12  1  2   intro light record: u8 slot, pad
+ov204:0x021BFE14  2  8   intro light record: vector, colour
