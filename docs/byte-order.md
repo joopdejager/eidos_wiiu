@@ -91,6 +91,18 @@ declares its own in the host build.  Where the game masks or shifts one of
 its own runtime words that it also declares bit-fields over (an emitter's
 misc word), the host build names the bit-field instead.
 
+**Texture palette memory holds the DS's order**: only the port's texture
+decoder reads it (engine/g3d/texture.c), as little-endian bytes, and the 3D
+files' and particle archives' palettes are uploaded as they are.  A G2D
+palette, turned to the host's order when its file loaded, is turned back
+around its upload to texture palette memory (the decomp's
+NNSi_G2dLoadTexPlttDsOrder, for MCSS's sprites).
+
+**MCSS's cell headers (NCEC)** have no NITRO header, so no extractor turns
+them; MCSS turns each one into native values after loading it.  Its flag
+words are set with masks and read through bit-fields, and are stored in
+the DS's order (`tools/sso_types.txt`) so the two agree.
+
 **VRAM and palette RAM** hold the host's order: the game's own stores
 there are native, and the palettes and screens it copies in come from
 turned NITRO files. Raw 16-bit data copied in from an archive member with

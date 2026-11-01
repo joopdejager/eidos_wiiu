@@ -8,12 +8,16 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `ef759127f6d42586dc862d926cef7197bc8cb961`
+- Revision: `ca1d06c8e9b0b5c909df8500bdbad7452844dc86`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 05:23:28 +0000
-- Subject: Name MCSS's system flag union and the vanish bit on a host
+- Date: 2026-11-01 06:06:32 +0000
+- Subject: Load G2D palettes into texture palette memory in the DS's order on a big-endian host
 
-The step from `6614f5d26`: McssSys's flag union is named McssSysFlags in the host
+The step from `ef759127f`: NNSi_G2dLoadVramResourceBySel and
+NNSi_G2dLoadVramResourceList turn a G2D palette to the DS's order around
+its upload to texture palette memory on a big-endian host.
+
+The step before, from `6614f5d26`: McssSys's flag union is named McssSysFlags in the host
 build, and MCSS_SetVanishFlag/MCSS_ResetVanishFlag set vanishFlag by name,
 so the MCSS flag words can be stored in the DS's order.
 
