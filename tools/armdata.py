@@ -347,6 +347,7 @@ class SourceFile:
         for sm in re.finditer(r"\b([A-Za-z_]\w*)\s*\[", code):
             if sm.group(1) in self.decl_types:
                 self.subscripted.add(sm.group(1))
+        typedef_structs = {m.group(2) for m in _TYPEDEF_STRUCT_RE.finditer(code)}
         for dm in _extern_decls(code):
             w = decl_width(dm.group(1))
             if w is not None:
@@ -355,15 +356,22 @@ class SourceFile:
                 sm = re.match(r"\s*(?:const\s+|volatile\s+)*struct\s+([A-Za-z_]\w*)\s*$", dm.group(1))
                 if sm:
                     self.decl_structs[dm.group(2)] = sm.group(1)
-        for sm in _STRUCT_DEF_RE.finditer(code):
+                else:
+                    # a typedef'd struct (ov204's IntroActorPos, u16 v[12])
+                    tm = re.match(r"\s*(?:const\s+|volatile\s+)*([A-Za-z_]\w*)\s*$", dm.group(1))
+                    if tm and tm.group(1) in typedef_structs:
+                        self.decl_structs[dm.group(2)] = tm.group(1)
+        defs = [(m.group(1), m.group(2)) for m in _STRUCT_DEF_RE.finditer(code)]
+        defs += [(m.group(2), m.group(1)) for m in _TYPEDEF_STRUCT_RE.finditer(code)]
+        for name, members in defs:
             ws = set()
-            for member in sm.group(2).split(";"):
+            for member in members.split(";"):
                 member = member.strip()
                 if not member:
                     continue
                 mm = re.match(r"(.*?)\b[A-Za-z_]\w*\s*(?:\[[^\]]*\]\s*)*$", member)
                 ws.add(decl_width(mm.group(1)) if mm and ":" not in member else None)
-            self.struct_widths[sm.group(1)] = ws.pop() if len(ws) == 1 else None
+            self.struct_widths[name] = ws.pop() if len(ws) == 1 else None
         # src/game now shares extern object declarations through headers.
         # A referenced data symbol in the unit's address manifest still
         # needs a binding when its declaration is no longer in this file.
@@ -666,6 +674,10 @@ def object_pointer_words(obj):
 
 
 _STRUCT_DEF_RE = re.compile(r"\bstruct\s+([A-Za-z_]\w*)\s*\{([^{}]*)\}")
+# `typedef struct [Tag] { ... } Name;`: group(1) the members, group(2) the
+# typedef name.
+_TYPEDEF_STRUCT_RE = re.compile(
+    r"\btypedef\s+struct\s*(?:[A-Za-z_]\w*\s*)?\{([^{}]*)\}\s*([A-Za-z_]\w*)\s*;")
 # `(const struct T *)(&name)`, `(T *)name`: a cast of a name to a struct
 # type's pointer (tools/datalayout.py takes only struct types from these).
 _CAST_RE = re.compile(

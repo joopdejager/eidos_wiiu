@@ -177,3 +177,7 @@ ov204:0x021BFE08  1  2   intro light record: u8 slot, pad
 ov204:0x021BFE0A  2  8   intro light record: vector, colour
 ov204:0x021BFE12  1  2   intro light record: u8 slot, pad
 ov204:0x021BFE14  2  8   intro light record: vector, colour
+# ov204's actor init params for INTRO_CMD_CreateActors, declared through a
+# typedef (IntroActorPos, u16 v[12]) the declaration typing does not follow;
+# as words a big-endian host gave the actors a garbage animation sequence
+gIntroActorPos  2  24  intro actor init params (u16[12])
