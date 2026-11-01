@@ -76,6 +76,9 @@ static char               g_error[256];
 /* The flat host address of each loaded range's first byte, or NULL. */
 static u8                *g_flat[MAX_RANGES];
 static const BwDataImage *g_flat_img;
+/* The ARM9's own image, once loaded: an overlay's scan asks it for the
+ * ARM9 functions the overlay's data points at. */
+static const BwDataImage *g_arm9_img;
 static u32                g_scanned;
 static u32                g_scanned_data;
 
@@ -268,6 +271,9 @@ int bw_data_load(const BwDataImage *img)
         bw_ds_register(o->addr, o->host, o->size, o->name);
     }
     g_flat_img = img;
+    if (img->overlay < 0) {
+        g_arm9_img = img;
+    }
     return BW_DATA_OK;
 }
 
@@ -388,6 +394,19 @@ BwDataFn bw_arm9_code_entry(const BwDataImage *img, u32 value)
  * becomes that function's host address.  Listed words are already done and
  * skipped.  Returns how many words it rewrote.
  */
+/* 1 if `value` lies inside one of the image's own ranges. */
+static int in_own_ranges(const BwDataImage *img, u32 value)
+{
+    u32 k;
+
+    for (k = 0; k < img->range_count; k++) {
+        if (value - img->ranges[k].addr < img->ranges[k].size) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static u32 scan_code_pointers(const BwDataImage *img)
 {
     u32 n = 0;
@@ -432,15 +451,24 @@ static u32 scan_code_pointers(const BwDataImage *img)
                     /* Into an overlay window: the ARM9 data's save block
                      * table points at ov010's functions. */
                     fn = bw_ovl_code_entry(value);
+                } else if (!in_own_ranges(img, value)) {
+                    /* An overlay's data into another overlay's code (ov021's
+                     * field model move tables point at ov010's functions)
+                     * or into the ARM9's. */
+                    fn = bw_ovl_code_entry(value);
+                    if (fn == NULL) {
+                        fn = bw_arm9_code_entry(g_arm9_img, value);
+                    }
                 }
                 if (fn == NULL) {
                     continue;
                 }
                 word = (u32)(uintptr_t)fn;
                 memcpy(w, &word, 4);
-                if (img->overlay < 0) {
+                if (img->overlay < 0 && f >= 0) {
                     /* the ARM9's own words only: an overlay's are the
-                     * overlay layer's (bw_data_relocate) */
+                     * overlay layer's (bw_data_relocate), and a word into
+                     * an overlay window has no entry of the ARM9's */
                     remember_code_word(w, word, &img->funcs[f]);
                 }
                 done_add(a);
