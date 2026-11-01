@@ -301,6 +301,23 @@ static int narc_members_to_host(u8 *p, u32 n, int (*fn)(u8 *, u32), int only)
     return 0;
 }
 
+/* A member that is nothing but 16-bit values, in place: 0, or -1 when its
+ * size is odd. */
+static int u16s_to_host(u8 *p, u32 n)
+{
+    u32 i;
+
+    if (n & 1u) {
+        return -1;
+    }
+    for (i = 0; i < n; i += 2) {
+        u8 t = p[i];
+        p[i] = p[i + 1];
+        p[i + 1] = t;
+    }
+    return 0;
+}
+
 static const struct {
     const char *path;                   /* under data/ */
     int member;                         /* -1: every member */
@@ -318,6 +335,11 @@ static const struct {
     { "a/1/1/4", 1, bw_msg_to_host, "malformed message bank" },
     /* The fonts (arc id 0x17), which GF_FONT reads in pieces. */
     { "a/0/2/3", -1, bw_nftr_to_host, "malformed font" },
+    /* The name entry screen's tables (arc id 0x77, ov194 namein_data.c):
+     * keyboard grids (width, height, character codes), character tables
+     * and the pair table, every member a run of u16 the game reads
+     * natively. */
+    { "a/1/1/9", -1, u16s_to_host, "malformed name entry table" },
 };
 
 

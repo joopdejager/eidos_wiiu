@@ -225,8 +225,9 @@ static inline void bw_mem_wr32(u8 *p, u32 v)
  *   4  and the fonts (a/0/2/3)
  *   5  and the 3D files (models, textures, animations; sdk/g3d_order.h)
  *      and the camera animations (ICA)
+ *   6  and the name entry screen's tables (a/1/1/9)
  */
-#define BW_BYTE_ORDER_MARK "big-endian 5"
+#define BW_BYTE_ORDER_MARK "big-endian 6"
 
 #define bw_dr_rd16 bw_mem_rd16
 #define bw_dr_rd32 bw_mem_rd32
