@@ -726,8 +726,14 @@ def read_list(path):
 
 
 def _word_aggregate_defs(text):
-    """The bw_word_<Name> types `text` uses, defined: the real struct or
-    union under wasm32 (WordAggregate), unsigned int elsewhere."""
+    """The bw_word_<Name> types `text` uses, defined: unsigned int where the
+    C ABI passes and returns a one-word aggregate as a word (ARM, x86-64,
+    AArch64), the real struct or union elsewhere (WordAggregate): wasm32,
+    i386 System V and 32-bit PowerPC return one through memory (and
+    PowerPC passes one by reference), so a generated dispatcher declared
+    with unsigned int disagreed with the game's own calls (ov094's call of
+    BTL_POKEPARAM_GetSickContRaw shifted its arguments by the hidden return
+    pointer)."""
     used = sorted(set(re.findall(r"\bbw_word_(\w+)", text)) & set(WORD_AGGREGATES))
     if not used:
         return ""
@@ -738,7 +744,7 @@ def _word_aggregate_defs(text):
         kind = "union" if re.match(r"^\s*typedef\s+union\b", WORD_AGGREGATES[n]) else "struct"
         out += ["#ifndef BW_WORD_%s" % n,
                 "#define BW_WORD_%s" % n,
-                "#if defined(__wasm__)",
+                "#if !(defined(__arm__) || defined(__x86_64__) || defined(__aarch64__))",
                 "typedef %s %s bw_word_%s;" % (kind, body, n),
                 "static inline unsigned int bw_word_%s_bits(bw_word_%s v)" % (n, n),
                 "{ unsigned int w; __builtin_memcpy(&w, &v, 4); return w; }",
@@ -917,9 +923,10 @@ class WordAggregate(str):
     """A one-word struct or union by value, normalised: it compares as
     "unsigned int" (what i686 and ARM pass and return it as, so every rule
     below treats it as one), but prints as bw_word_<Name>, which
-    write_if_changed defines.  The wasm32 C ABI passes and returns an
-    aggregate through memory, not as a word, so there the generated code
-    must use the real type for its calls to agree with the game's."""
+    write_if_changed defines.  The wasm32, i386 and 32-bit PowerPC C ABIs
+    return an aggregate through memory, not as a word, so there the
+    generated code must use the real type for its calls to agree with the
+    game's (_word_aggregate_defs)."""
 
     def __new__(cls, name, body):
         o = str.__new__(cls, "unsigned int")

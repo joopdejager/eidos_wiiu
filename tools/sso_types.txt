@@ -70,3 +70,6 @@ particle.c:BlkInner   PARTICLE_EMITTER_SetEmitPos's view of the SPA record (emit
 mcss.c:McssSysFlags  the MCSS system's flag word: MCSS_SetOrthoMode sets bit 0 with masks, the draw reads it as orthoMode (a runtime word, stored in the DS's order so the masks and the bit-fields agree)
 mcss.c:McssFlags     an MCSS object's flag word: masks set loaded (0x2000), alpha, the shadow alpha and more; MCSS_Draw reads the bit-fields
 mcss.c:McssRequestFlags  its request word, the same two views
+printsys.c:TextPrinterFlags  a text stream's flag byte: PRINTSYS_PrintStreamReleasePause sets advance with raw |= 4, the task reads the bit-fields (a big-endian host's byte order of bit-fields put advance at bit 5, and the intro's text never moved on)
+printsys.c:PrintQueueState   the print queue's state byte, the same two views
+printsys.c:PrintPos          a print job's pen word: masks and shifts on raw (the colour mode at bits 20..23) and the bit-fields

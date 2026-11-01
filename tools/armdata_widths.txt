@@ -100,3 +100,11 @@ ov204:0x021BFFC0  4  12  intro BG row 3: mosaic, two words
 # it so).  talkmsgwin.c declares both u32[], so a word swap reversed them
 sTalkMsgWinTexture  1  0  ov021 talk balloon texel tile (4bpp, bytes)
 sTalkMsgWinPalette  1  0  ov021 talk balloon texture palette (DS order)
+# ov093's battle client tables, which data_objects.json types as u16:
+# gServerCommandHandlers, 0x5D {int code, step function} pairs that
+# BTL_CLIENT_StepRunServerCommands looks up, and the 72 bytes of function
+# pointers (and zeros) after it.  As u16 a big-endian host swapped the
+# halves of every word, and the load-time scan for code pointers passed
+# them over (the battle called BTL_CLIENT_StepUpdateIllusion's DS address)
+gServerCommandHandlers  4  744  ov093 battle server command handlers ({code, fn}[0x5D])
+ov093:0x021F03C4  4  72  ov093 battle client function pointer table after them
