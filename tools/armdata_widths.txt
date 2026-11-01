@@ -460,3 +460,25 @@ sTexPlttStartAddrTable  2  16  SDK texture palette LCDC start table (u16[8])
 # unit; declared unsigned[] and so turned as words, which swapped each pair
 # and gave G3D_SYSTEM_CreateAnime the model file at index 1
 d_021C0348  2  20  demo unit animation setups ({u16, u16}[5])
+# ov203's demo command lists (each row's res[0]): records {int kind, time,
+# values[8]} up to and including the kind 18 that ends one; data_objects.json
+# types them as bytes and pieces, and a big-endian host dispatched a
+# garbage command kind
+ov203:0x021C084C  4  80    demo command list (2 records)
+ov203:0x021C089C  4  80    demo command list (2 records)
+ov203:0x021C10B4  4  160   demo command list (4 records)
+ov203:0x021C1154  4  200   demo command list (5 records)
+ov203:0x021C121C  4  200   demo command list (5 records)
+ov203:0x021C12E4  4  200   demo command list (5 records)
+ov203:0x021C13AC  4  200   demo command list (5 records)
+ov203:0x021C1474  4  240   demo command list (6 records)
+ov203:0x021C1564  4  240   demo command list (6 records)
+ov203:0x021C1654  4  240   demo command list (6 records)
+ov203:0x021C1744  4  280   demo command list (7 records)
+ov203:0x021C19D8  4  400   demo command list (10 records)
+ov203:0x021C1B68  4  560   demo command list (14 records)
+ov203:0x021C1D98  4  920   demo command list (23 records)
+ov203:0x021C2130  4  1040  demo command list (26 records)
+ov203:0x021C2540  4  1200  demo command list (30 records)
+ov203:0x021C29F0  4  1240  demo command list (31 records)
+ov203:0x021C2EC8  4  3280  demo command list (82 records)
