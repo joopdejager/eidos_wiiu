@@ -65,3 +65,7 @@ ov194:0x021F557C  4  40  name entry wave archive list: count, three proc pointer
 # argument words, a flags word) that INTRO_CMD_RunCommands reads as words;
 # data_objects.json has them as bytes
 ov204:0x021C0008  4  2280  intro scenario command rows (IntroCommand[])
+# The intro professor's MCSS resource set: a McssAddWork of nine u32s
+# (archive, members, heap mode) that MCSS_Add reads; intro_cmd.c declares
+# it as bytes and data_objects.json has it as u8
+gIntroMcssArg  4  0  intro MCSS add work (McssAddWork)

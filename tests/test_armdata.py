@@ -337,6 +337,17 @@ def main():
         check("overlay copy range", "{ 0x02100000u, 0x800u, 0x00000000u, 1 }" in c3)
         check("overlay .bss", "{ 0x02100800u, 0x100u, 0, 0 }" in c3)
 
+        # --- every declarator of one extern declaration is typed ----------
+        sys.path.insert(0, os.path.dirname(os.path.abspath(args.tool)))
+        import armdata as _ad
+        got = [(d.group(2), d.group(1).strip()) for d in _ad._extern_decls(
+            "extern const struct BgTemplate d_A, d_B,d_C;\n"
+            "extern char *p, q[4];\n")]
+        check("each declarator of a multi-name extern",
+              got == [("d_A", "const struct BgTemplate"), ("d_B", "const struct BgTemplate"),
+                      ("d_C", "const struct BgTemplate"), ("p", "char *"), ("q", "char")],
+              str(got))
+
         # --- a wrong path into aletheia's tree is an error, not "generated" --
         p = run(args.tool, root, extra_sources=[
             os.path.join(root, "src", "matched", "arm9", "no_such_file.c")], expect_ok=False)

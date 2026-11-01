@@ -317,7 +317,7 @@ class SourceFile:
         self.decl_types = {}
         self.cast_types = {}
         self.copies = {}
-        for dm in _EXTERN_DECL_RE.finditer(code):
+        for dm in _extern_decls(code):
             self.decl_types[dm.group(2)] = dm.group(1)
         for cm in _CAST_RE.finditer(code):
             self.cast_types.setdefault(cm.group(2), set()).add(cm.group(1))
@@ -334,7 +334,7 @@ class SourceFile:
         self.decl_extent = {}
         self.decl_count = {}            # elements, for any type (layout_runs)
         self.subscripted = set()
-        for dm in _EXTERN_DECL_RE.finditer(code):
+        for dm in _extern_decls(code):
             w = decl_width(dm.group(1))
             dims = re.findall(r"\[\s*(0x[0-9A-Fa-f]+|\d+)\s*\]", dm.group(0))
             if dims:
@@ -347,7 +347,7 @@ class SourceFile:
         for sm in re.finditer(r"\b([A-Za-z_]\w*)\s*\[", code):
             if sm.group(1) in self.decl_types:
                 self.subscripted.add(sm.group(1))
-        for dm in _EXTERN_DECL_RE.finditer(code):
+        for dm in _extern_decls(code):
             w = decl_width(dm.group(1))
             if w is not None:
                 self.decl_widths[dm.group(2)] = w
@@ -675,6 +675,50 @@ _CAST_RE = re.compile(
 _COPY_RE = re.compile(r"(?<![\w.>])([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*;")
 _EXTERN_DECL_RE = re.compile(
     r"\bextern\s+([A-Za-z_][^;{}()=]*?)\b([A-Za-z_]\w*)\s*(?:\[[^;\]]*\]\s*)*;")
+_EXTERN_STMT_RE = re.compile(r"\bextern\s+([A-Za-z_][^;{}()=]*);")
+_DECLARATOR_RE = re.compile(r"^\s*([\s*]*)\b([A-Za-z_]\w*)\s*((?:\[[^\]]*\]\s*)*)$")
+
+
+class _Decl:
+    """One declarator of an extern declaration, read like a match of
+    _EXTERN_DECL_RE: group(1) its type text, group(2) its name, group(0)
+    the declarator with its dimensions."""
+
+    def __init__(self, type_text, name, text):
+        self._g = (text, type_text, name)
+
+    def group(self, i):
+        return self._g[i]
+
+
+def _extern_decls(code):
+    """Each declarator of each `extern` object declaration in `code`:
+    `extern const struct BgTemplate a, b, c;` declares all three names with
+    the type, and `extern int *p, n;` gives each its own stars."""
+    for m in _EXTERN_STMT_RE.finditer(code):
+        body = m.group(1)
+        parts, depth, start = [], 0, 0
+        for i, ch in enumerate(body):
+            if ch == "[":
+                depth += 1
+            elif ch == "]":
+                depth -= 1
+            elif ch == "," and depth == 0:
+                parts.append(body[start:i])
+                start = i + 1
+        parts.append(body[start:])
+        first = _EXTERN_DECL_RE.match("extern " + parts[0] + ";")
+        if not first:
+            continue
+        yield _Decl(first.group(1), first.group(2), "extern " + parts[0] + ";")
+        base = first.group(1).rstrip(" \t\n*")
+        for part in parts[1:]:
+            dm = _DECLARATOR_RE.match(part)
+            if not dm:
+                continue
+            stars = dm.group(1).replace(" ", "").replace("\t", "").replace("\n", "")
+            type_text = base + (" " + stars if stars else " ")
+            yield _Decl(type_text, dm.group(2), part + ";")
 _WIDTH_OF = {
     "u8": 1, "s8": 1, "vu8": 1, "vs8": 1, "char": 1,
     "u16": 2, "s16": 2, "vu16": 2, "vs16": 2, "short": 2, "fx16": 2, "GXRgb": 2,
