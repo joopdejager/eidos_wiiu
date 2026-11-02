@@ -345,6 +345,97 @@ static int light_table_to_host(u8 *p, u32 n)
     return 0;
 }
 
+static void swap16_at(u8 *p, u32 n)
+{
+    u32 i;
+
+    for (i = 0; i + 1 < n; i += 2) {
+        u8 t = p[i];
+        p[i] = p[i + 1];
+        p[i + 1] = t;
+    }
+}
+
+static void swap32_at(u8 *p)
+{
+    u8 t = p[0];
+    p[0] = p[3];
+    p[3] = t;
+    t = p[1];
+    p[1] = p[2];
+    p[2] = t;
+}
+
+/* A zone event file (arc id 0x7D, ov010 eventdata_system.c): a u32, the
+ * offset of the special script table; four u8 counts; then the bg events
+ * (0x14 bytes), the field model headers (0x24, struct MmdlHeader), the
+ * connects (0x14) and the position events (0x16).  Their u16, s16 and s32
+ * fields are turned, each union by its record's position type (0 grid,
+ * else rail).  The special script table after them is read a byte at a
+ * time (SCRIPT_SYS_FindSpecialScript) and stays as it is.  0, or -1 when
+ * the tables run past the member. */
+static int event_file_to_host(u8 *p, u32 n)
+{
+    u32 counts[4], at, i;
+
+    if (n == 0) {
+        return 0;
+    }
+    if (n == 4) {
+        swap32_at(p);   /* the archive's last member: the offset alone */
+        return 0;
+    }
+    if (n < 8) {
+        return -1;
+    }
+    for (i = 0; i < 4; i++) {
+        counts[i] = p[4 + i];
+    }
+    if (8u + counts[0] * 0x14u + counts[1] * 0x24u + counts[2] * 0x14u
+        + counts[3] * 0x16u > n) {
+        return -1;
+    }
+    swap32_at(p);
+    at = 8;
+    for (i = 0; i < counts[0]; i++, at += 0x14u) {     /* bg events */
+        u8 *r = p + at;
+        u16 posType = (u16)(r[6] | (r[7] << 8));
+
+        swap16_at(r, 8);
+        if (posType == 0) {
+            swap32_at(r + 8);
+            swap32_at(r + 12);
+            swap32_at(r + 16);
+        } else {
+            swap16_at(r + 8, 12);
+        }
+    }
+    for (i = 0; i < counts[1]; i++, at += 0x24u) {     /* field models */
+        u8 *r = p + at;
+        u32 posType = (u32)r[0x18] | ((u32)r[0x19] << 8) | ((u32)r[0x1A] << 16)
+                      | ((u32)r[0x1B] << 24);
+
+        swap16_at(r, 0x18);
+        swap32_at(r + 0x18);
+        if (posType == 0) {
+            swap16_at(r + 0x1C, 4);
+            swap32_at(r + 0x20);
+        } else {
+            swap16_at(r + 0x1C, 8);
+        }
+    }
+    for (i = 0; i < counts[2]; i++, at += 0x14u) {     /* connects */
+        u8 *r = p + at;
+
+        swap16_at(r, 4);
+        swap16_at(r + 6, 14);
+    }
+    for (i = 0; i < counts[3]; i++, at += 0x16u) {     /* position events */
+        swap16_at(p + at, 0x16);
+    }
+    return 0;
+}
+
 static const struct {
     const char *path;                   /* under data/ */
     int member;                         /* -1: every member */
@@ -374,6 +465,8 @@ static const struct {
     { "a/0/6/1", -1, light_table_to_host, "malformed light table" },
     { "a/0/6/2", -1, light_table_to_host, "malformed light table" },
     { "a/0/8/2", 0, light_table_to_host, "malformed light table" },
+    /* The zone event files (arc id 0x7D). */
+    { "a/1/2/5", -1, event_file_to_host, "malformed zone event file" },
 };
 
 
