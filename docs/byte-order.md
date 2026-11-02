@@ -130,7 +130,13 @@ by several units is turned when the data is extracted
 (`install/byteorder.c`): the name entry tables (`a/1/1/9`, every member a
 run of u16) and the time-of-day light tables (`a/0/6/1`, `a/0/6/2` and
 `a/0/8/2` member 0: 0x34-byte keyframes of u16 and fx16, except the four
-u8 slot flags at +4).
+u8 slot flags at +4) and the zone event files (`a/1/2/5`: the bg event,
+field model, connect and position event records, each union by its
+record's position type; the special script table after them is read a byte
+at a time and stays as it is).  Byte-sized bit-fields over ROM data need
+the DS's order too, for the bit order alone: ov010's script command permit
+bytes (struct ScriptCmdPermit) read the top bit on a big-endian host and
+refused every command.
 
 **G3D dictionaries** of 16 entries or more are Patricia tries whose walk
 tests bit b of a name as a bit of a little-endian word; the decomp's
