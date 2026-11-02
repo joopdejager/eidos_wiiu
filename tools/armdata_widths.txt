@@ -632,3 +632,8 @@ ov203:0x021C098C  4  80    demo exit command list (2 records)
 ov203:0x021C09DC  4  80    demo exit command list (2 records)
 ov203:0x021C0A2C  4  80    demo exit command list (2 records)
 ov203:0x021C0A7C  4  80    demo exit command list (2 records)
+# ov010's script command permit bytes d_02170374 (struct ScriptCmdPermit,
+# one u8 of bit-fields per command, 0x268 commands): typed as words, a
+# big-endian host swapped them in fours, each command read another's
+# permit, and the new game's init script spun in SCRIPT_SYS_ForceExitNet
+ov010:0x02170374  1  616  script command permit bytes
