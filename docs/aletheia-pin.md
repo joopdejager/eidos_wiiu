@@ -8,12 +8,16 @@ This file records that revision.
 
 ## The pin
 
-- Revision: `9f4fac5c29260887070605ac88d4813c73da98c6`
+- Revision: `f47f71260c386dbb838181b83d81de44c73e75b5`
   (github.com/joopdejager/black_wiiu, branch `claude/eloquent-rubin-gru53s`)
-- Date: 2026-11-01 19:35:34 +0000
-- Subject: Declare the demo record's render bit-fields in reverse on a big-endian host
+- Date: 2026-11-01 23:47:58 +0000
+- Subject: Walk the G3D dictionary trie by name byte on a big-endian host
 
-The step from `0975c30b7`: ov203's struct Demo3dEngineRecord declares its three
+The step from `9f4fac5c2`: NNS_G3dGetResDataByName and NNS_G3dGetResDictIdxByName
+walk a dictionary trie by name byte on a big-endian host, the bit the DS's
+little-endian word holds.
+
+The step before, from `0975c30b7`: ov203's struct Demo3dEngineRecord declares its three
 u16 bit-field groups in reverse on a big-endian host.
 
 The step before, from `f45133271`: ov203's struct Cam declares its flag bit-fields in
