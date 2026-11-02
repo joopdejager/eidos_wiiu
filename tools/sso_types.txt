@@ -73,3 +73,6 @@ mcss.c:McssRequestFlags  its request word, the same two views
 printsys.c:TextPrinterFlags  a text stream's flag byte: PRINTSYS_PrintStreamReleasePause sets advance with raw |= 4, the task reads the bit-fields (a big-endian host's byte order of bit-fields put advance at bit 5, and the intro's text never moved on)
 printsys.c:PrintQueueState   the print queue's state byte, the same two views
 printsys.c:PrintPos          a print job's pen word: masks and shifts on raw (the colour mode at bits 20..23) and the bit-fields
+zonedata.c:ZoneHeader     the zone header records ZONEDATA_GetHeader reads raw out of a/0/1/2 (0x30 bytes: u8, u16, bit-field and s32 fields)
+zonedata.c:AreaData       the area data records ZONEDATA_CreateAreaData loads raw (FILE_UTIL file 13, 10 bytes each)
+zonedata.c:ZoneValuePair  the zone side tables loaded raw: fog (a/0/8/1 member 13), light (a/0/8/2 member 1), map effect (a/1/4/9 member 0)

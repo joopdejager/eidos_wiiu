@@ -118,3 +118,23 @@ there are native, and the palettes and screens it copies in come from
 turned NITRO files. Raw 16-bit data copied in from an archive member with
 no header (the title demo's bitmaps) has to be turned where the game loads
 it.
+
+**Raw field data tables** (archive members and files with no NITRO header)
+are handled one of two ways.  A table the game copies into its own
+buffers and reads field by field through one struct is stored in the
+DS's order with that struct in `tools/sso_types.txt`, which also gets its
+bit-fields right: the zone headers (`a/0/1/2`, struct ZoneHeader), the
+area records (FILE_UTIL file 13, struct AreaData) and the zone side tables
+(struct ZoneValuePair).  A table read through plain pointer arithmetic or
+by several units is turned when the data is extracted
+(`install/byteorder.c`): the name entry tables (`a/1/1/9`, every member a
+run of u16) and the time-of-day light tables (`a/0/6/1`, `a/0/6/2` and
+`a/0/8/2` member 0: 0x34-byte keyframes of u16 and fx16, except the four
+u8 slot flags at +4).
+
+**G3D dictionaries** of 16 entries or more are Patricia tries whose walk
+tests bit b of a name as a bit of a little-endian word; the decomp's
+NNS_G3dGetResDataByName and NNS_G3dGetResDictIdxByName test the name's
+byte instead on a big-endian host.  Without that a model with many
+materials binds few of its textures (the intro fly-over's town drew
+untextured).

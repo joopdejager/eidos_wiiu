@@ -386,6 +386,24 @@ ov203:0x021C07A8  2  4    demo unit halfwords
 ov203:0x021C07AC  4  4    demo unit words
 ov203:0x021C07B0  2  4    demo unit halfwords
 ov203:0x021C07B4  4  72   demo unit words
+# ov203's light set d_021BFB48 (G3D_LIGHT_CreateSlots in
+# DEMO3D_GRAPHIC_InitG3d): a LightSetDesc {records pointer, u8 count} inside
+# the word run from gDemo3dProcData, and its four 10-byte LightSlotDesc
+# records at 0x021BFB9C {u8 slot, pad, four u16}.  Typed as words, the
+# count turned to 0 on a big-endian host: the demo created no lights and
+# the fly-over's lit town drew dark
+ov203:0x021BFB3C  4  12  demo proc data
+ov203:0x021BFB48  4  4   demo light set: records pointer
+ov203:0x021BFB4C  1  4   demo light set: u8 count, pad
+ov203:0x021BFB50  4  16  demo words after the light set
+ov203:0x021BFB9C  1  2   demo light record: u8 slot, pad
+ov203:0x021BFB9E  2  8   demo light record: vector, colour
+ov203:0x021BFBA6  1  2   demo light record: u8 slot, pad
+ov203:0x021BFBA8  2  8   demo light record: vector, colour
+ov203:0x021BFBB0  1  2   demo light record: u8 slot, pad
+ov203:0x021BFBB2  2  8   demo light record: vector, colour
+ov203:0x021BFBBA  1  2   demo light record: u8 slot, pad
+ov203:0x021BFBBC  2  8   demo light record: vector, colour
 # ov203's VRAM bank sets d_021BFBC4 (two DispVram, twelve u32 enums each),
 # declared unsigned char[][48] and typed u8: a big-endian host mapped no
 # bank for textures and the fly-over's texture upload wrote through null

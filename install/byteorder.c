@@ -318,6 +318,33 @@ static int u16s_to_host(u8 *p, u32 n)
     return 0;
 }
 
+/* A zone light table (ZONEDATA_LoadLightTable, arm9 zone_light.c, and
+ * FIELD_LIGHT_LoadTable, ov021 field_light.c): 0x34-byte keyframes of u16
+ * and fx16 fields, except the four u8 slot-used flags at +4, in place: 0, or
+ * -1 when the size is not a whole number of keyframes. */
+static int light_table_to_host(u8 *p, u32 n)
+{
+    u32 r;
+    u32 i;
+
+    if (n % 0x34u != 0) {
+        return -1;
+    }
+    for (r = 0; r < n; r += 0x34u) {
+        for (i = 0; i < 0x34u; i += 2) {
+            u8 t;
+
+            if (i == 4 || i == 6) {
+                continue;
+            }
+            t = p[r + i];
+            p[r + i] = p[r + i + 1];
+            p[r + i + 1] = t;
+        }
+    }
+    return 0;
+}
+
 static const struct {
     const char *path;                   /* under data/ */
     int member;                         /* -1: every member */
@@ -340,6 +367,13 @@ static const struct {
      * and the pair table, every member a run of u16 the game reads
      * natively. */
     { "a/1/1/9", -1, u16s_to_host, "malformed name entry table" },
+    /* The zone light tables (arc ids 0x3D, 0x3E and 0x52 member 0).
+     * 0x52 member 1, the zone-to-light pairs, stays in the DS's order:
+     * zonedata.c reads it through struct ZoneValuePair, which
+     * tools/sso_types.txt stores so. */
+    { "a/0/6/1", -1, light_table_to_host, "malformed light table" },
+    { "a/0/6/2", -1, light_table_to_host, "malformed light table" },
+    { "a/0/8/2", 0, light_table_to_host, "malformed light table" },
 };
 
 
