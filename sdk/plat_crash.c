@@ -512,6 +512,11 @@ unsigned int bw_code_index(unsigned int at)
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#if defined(__GLIBC__)
+#include <execinfo.h>
+#endif
+
+void bw_plat_backtrace(void);
 
 static void bw_crash_handler(int sig, siginfo_t *si, void *uc)
 {
@@ -521,6 +526,7 @@ static void bw_crash_handler(int sig, siginfo_t *si, void *uc)
     fprintf(stderr, "CRASH: signal %d (%s) at address %p\n", sig,
             sig == SIGSEGV ? "SIGSEGV" : sig == SIGBUS ? "SIGBUS" :
             sig == SIGILL ? "SIGILL" : "SIGFPE", si ? si->si_addr : NULL);
+    bw_plat_backtrace();
     bw_plat_crash_context_run();
     fflush(stderr);
     _exit(3);
@@ -533,14 +539,29 @@ int bw_plat_crash_installed(void)
     return bw_crash_on;
 }
 
+#if defined(__GLIBC__)
+/* glibc walks the stack (the frame chain, or the unwind tables); the
+ * addresses are the executable's, for addr2line. */
+void bw_plat_backtrace(void)
+{
+    void *frames[64];
+    int n = backtrace(frames, 64);
+
+    fflush(stderr);
+    backtrace_symbols_fd(frames, n, 2);
+}
+#else
 /* No portable way to walk the stack here; the panic message stands alone. */
 void bw_plat_backtrace(void)
 {
 }
+#endif
 
 typedef struct BwWatchdog {
     unsigned seconds;
     unsigned long long (*progress)(void);
+    pthread_t main;             /* the thread that started the watchdog */
+    int has_main;
 } BwWatchdog;
 
 static BwWatchdog g_watchdog;
@@ -568,11 +589,69 @@ static void *bw_watchdog_main(void *arg)
     }
     fprintf(stderr, "WATCHDOG: no progress for %u s (at %llu)\n",
             g_watchdog.seconds, last);
+#if defined(__GLIBC__)
+    /* Where the stuck thread is: it prints its own stack and ends the
+     * process (bw_watchdog_dump); this thread ends it if that never runs. */
+    if (g_watchdog.has_main) {
+        struct timespec ts;
+
+        fflush(stderr);
+        pthread_kill(g_watchdog.main, SIGUSR2);
+        ts.tv_sec = 10;
+        ts.tv_nsec = 0;
+        nanosleep(&ts, NULL);
+    }
+#endif
     bw_plat_crash_context_run();
     fflush(stderr);
     _exit(3);
     return NULL;
 }
+
+#if defined(__GLIBC__)
+#include <ucontext.h>
+
+/* The interrupted thread's pc and return address, and on PowerPC its
+ * stack's back chain (glibc's backtrace stops at the signal frame there):
+ * each frame's first word is the caller's frame, whose second word is the
+ * return address into the caller. */
+static void bw_print_context(void *uc)
+{
+#if defined(__powerpc__) && !defined(__powerpc64__)
+    /* uc_mcontext is a pointer to the saved register set, whose general
+     * registers come first: r1 the stack pointer, 32 the pc, 36 the link
+     * register (the kernel's pt_regs order). */
+    const unsigned long *g = *(const unsigned long *const *)&((const ucontext_t *)uc)->uc_mcontext;
+    const unsigned long *sp = (const unsigned long *)g[1];
+    int i;
+
+    fprintf(stderr, "  pc %08lx lr %08lx\n", g[32], g[36]);
+    for (i = 0; i < 40 && sp != NULL; i++) {
+        const unsigned long *next = (const unsigned long *)sp[0];
+
+        if (next == NULL || next <= sp) {
+            break;
+        }
+        fprintf(stderr, "  called from %08lx\n", next[1]);
+        sp = next;
+    }
+#else
+    (void)uc;
+#endif
+}
+
+static void bw_watchdog_dump(int sig, siginfo_t *si, void *uc)
+{
+    (void)sig;
+    (void)si;
+    fprintf(stderr, "WATCHDOG: the stuck thread's stack:\n");
+    bw_print_context(uc);
+    bw_plat_backtrace();
+    bw_plat_crash_context_run();
+    fflush(stderr);
+    _exit(3);
+}
+#endif
 
 void bw_plat_watchdog(unsigned seconds, unsigned long long (*progress)(void))
 {
@@ -580,6 +659,20 @@ void bw_plat_watchdog(unsigned seconds, unsigned long long (*progress)(void))
 
     g_watchdog.seconds = seconds;
     g_watchdog.progress = progress;
+#if defined(__GLIBC__)
+    {
+        struct sigaction sa;
+
+        memset(&sa, 0, sizeof sa);
+        sa.sa_sigaction = bw_watchdog_dump;
+        sa.sa_flags = SA_SIGINFO;
+        sigemptyset(&sa.sa_mask);
+        if (sigaction(SIGUSR2, &sa, NULL) == 0) {
+            g_watchdog.main = pthread_self();
+            g_watchdog.has_main = 1;
+        }
+    }
+#endif
     if (pthread_create(&t, NULL, bw_watchdog_main, NULL) == 0) {
         pthread_detach(t);
     }
