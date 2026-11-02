@@ -417,11 +417,30 @@ static int in_own_ranges(const BwDataImage *img, u32 value)
     return 0;
 }
 
+/*
+ * The word at DS address `where` as the game reads it: a registered host
+ * object's copy when one covers it (bw_data_load registers the image's
+ * objects over their bytes, ov021's gFieldGimmickInitFuncs among them),
+ * else the flat copy `flat` of the range.  The scans read and write this
+ * one, so what they relocate is what the game loads.
+ */
+static u8 *scan_word(u8 *flat, u32 where)
+{
+    u8 *p = (u8 *)bw_ds_try_ptr(where);
+
+    if (p == NULL || p == flat || (u8 *)bw_ds_try_ptr(where + 3u) != p + 3) {
+        return flat;
+    }
+    return p;
+}
+
 static u32 scan_code_pointers(const BwDataImage *img)
 {
     u32 n = 0;
     u32 s, k;
 
+    /* This image's words into overlay windows are found again below. */
+    bw_ovl_window_words_forget(img->overlay);
     if (img->scan == NULL || img->func_count == 0) {
         return 0;
     }
@@ -438,7 +457,7 @@ static u32 scan_code_pointers(const BwDataImage *img)
             hi = sr->addr + sr->size < r->addr + r->size ? sr->addr + sr->size
                                                          : r->addr + r->size;
             for (a = (lo + 3u) & ~3u; a + 4u <= hi; a += 4u) {
-                u8 *w = g_flat[k] + (a - r->addr);
+                u8 *w = scan_word(g_flat[k] + (a - r->addr), a);
                 u32 value = bw_rd32(w);
                 long f = func_at(img, value);
                 BwDataFn fn = NULL;
@@ -467,17 +486,30 @@ static u32 scan_code_pointers(const BwDataImage *img)
                     /* Into the ARM9's own code: the registry first, so a
                      * mod's hook for the function wins (bw_arm9_code_entry). */
                     fn = arm9_code_of(img, &img->funcs[f]);
-                } else if (img->overlay < 0) {
+                } else if (img->overlay < 0 || !in_own_ranges(img, value)) {
                     /* Into an overlay window: the ARM9 data's save block
-                     * table points at ov010's functions. */
+                     * table points at ov010's functions, ov021's field
+                     * model move tables at ov010's, and ov021's encounter
+                     * effect table at ov075's and ov078's, which share
+                     * their window.  The overlay resident now answers, or
+                     * the one overlay with a function there; the word is
+                     * bound again as overlays load over it
+                     * (bw_ovl_window_word). */
                     fn = bw_ovl_code_entry(value);
-                } else if (!in_own_ranges(img, value)) {
-                    /* An overlay's data into another overlay's code (ov021's
-                     * field model move tables point at ov010's functions)
-                     * or into the ARM9's. */
-                    fn = bw_ovl_code_entry(value);
-                    if (fn == NULL) {
+                    if (fn == NULL && img->overlay >= 0) {
+                        /* an overlay's data into the ARM9's code */
                         fn = bw_arm9_code_entry(g_arm9_img, value);
+                    }
+                    if (fn != NULL) {
+                        word = (u32)(uintptr_t)fn;
+                        memcpy(w, &word, 4);
+                    }
+                    if (bw_ovl_window_word(w, value, img->overlay) && fn == NULL) {
+                        /* No overlay answers yet: the DS value stays,
+                         * unswapped, until one with a function there
+                         * loads. */
+                        done_add(a);
+                        continue;
                     }
                 }
                 if (fn == NULL) {
@@ -568,7 +600,7 @@ static u32 scan_data_pointers(const BwDataImage *img)
             hi = sr->addr + sr->size < r->addr + r->size ? sr->addr + sr->size
                                                          : r->addr + r->size;
             for (a = (lo + 3u) & ~3u; a + 4u <= hi; a += 4u) {
-                u8 *w = g_flat[k] + (a - r->addr);
+                u8 *w = scan_word(g_flat[k] + (a - r->addr), a);
                 u32 value = bw_rd32(w);
                 void *p;
                 u32 word;

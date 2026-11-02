@@ -434,6 +434,107 @@ u32 bw_ovl_resolve_code_pointers(void)
     return n;
 }
 
+/*
+ * The words into overlay windows (bw_ovl_window_word in overlay_image.h).
+ * `now` is what the word holds as the port last left it, read with
+ * memcpy: a word that holds something else is the game's now.
+ */
+#define OVL_WINDOW_WORDS_MAX 4096
+
+typedef struct OvlWindowWord {
+    u8  *word;
+    u32  now;
+    u32  value;
+    int  owner;
+} OvlWindowWord;
+
+static OvlWindowWord g_window_words[OVL_WINDOW_WORDS_MAX];
+static u32           g_window_word_count;
+
+static int ovl_any_entry(u32 key)
+{
+    u32 i;
+
+    if (g_set == NULL) {
+        return 0;
+    }
+    for (i = 0; i < g_set->count; i++) {
+        if (ovl_own_entry(g_set->images[i], key) != NULL) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int bw_ovl_window_word(u8 *word, u32 value, int owner)
+{
+    OvlWindowWord *ww;
+
+    if (!ovl_any_entry(value & ~1u)) {
+        return 0;
+    }
+    if (g_window_word_count >= OVL_WINDOW_WORDS_MAX) {
+        bw_panic("bw_ovl_window_word", value,
+                 "more code words into overlay windows than "
+                 "sdk/overlay_image.c keeps (OVL_WINDOW_WORDS_MAX)");
+    }
+    ww = &g_window_words[g_window_word_count++];
+    ww->word = word;
+    memcpy(&ww->now, word, 4);
+    ww->value = value;
+    ww->owner = owner;
+    return 1;
+}
+
+void bw_ovl_window_words_forget(int owner)
+{
+    u32 i, k = 0;
+
+    for (i = 0; i < g_window_word_count; i++) {
+        OvlWindowWord *ww = &g_window_words[i];
+
+        if (ww->owner == owner
+            || (ww->owner >= 0 && !bw_overlay_is_loaded((u32)ww->owner))) {
+            continue;
+        }
+        g_window_words[k++] = *ww;
+    }
+    g_window_word_count = k;
+}
+
+/* Overlay `o` has just loaded: the window words into its window that it
+ * has a function for now call that function (or a mod's hook for it). */
+static void ovl_bind_window_words(const BwOvlImage *o, const BwOverlayDesc *d)
+{
+    u32 i;
+
+    if (!bw_data_relocation_supported()) {
+        return;
+    }
+    for (i = 0; i < g_window_word_count; i++) {
+        OvlWindowWord *ww = &g_window_words[i];
+        const BwDataFunc *f;
+        u32 key = ww->value & ~1u;
+        u32 cur, want;
+
+        if (ww->owner == (int)o->id || key - d->ram_address >= d->ram_size) {
+            continue;
+        }
+        f = ovl_own_entry(o, key);
+        if (f == NULL) {
+            continue;
+        }
+        memcpy(&cur, ww->word, 4);
+        if (cur != ww->now) {
+            continue;           /* the game wrote its own value there */
+        }
+        want = ovl_hook_address(BW_MOD_REGION_OVL(o->id), key,
+                                (u32)(uintptr_t)f->fn);
+        memcpy(ww->word, &want, 4);
+        ww->now = want;
+    }
+}
+
 /* ------------------------------------------------------------------ */
 /* The provider sdk/overlay.c calls                                     */
 /* ------------------------------------------------------------------ */
@@ -501,6 +602,7 @@ static void provider_load(const BwOverlayDesc *d)
      * overlays that are no longer resident, go away with their data: the
      * window holds this overlay's bytes now. */
     drop_code_words(d->id);
+    bw_ovl_window_words_forget((int)d->id);
     rc = bw_data_load(img->data);
     if (rc != BW_DATA_OK) {
         load_panic(d, "copying the image");
@@ -523,6 +625,9 @@ static void provider_load(const BwOverlayDesc *d)
      * relocation wrote the build's own functions into them, and a mod's
      * hook for one of them takes its place. */
     (void)ovl_apply_code_pointers(img);
+    /* The words elsewhere that point into this window call this overlay's
+     * functions now. */
+    ovl_bind_window_words(img, d);
 }
 
 static void provider_start(const BwOverlayDesc *d)

@@ -92,6 +92,20 @@ has another normalised prototype panics in the trampoline instead of being
 called through the wrong type; a prototype that cannot be normalised (a
 struct by value, a float, `...`) makes a trampoline that only panics.
 
+Code words the load-time scan finds (`sdk/armdata.c`, `scan_code_pointers`)
+in an overlay's data or the ARM9 data that point into another overlay's
+window are not trampolines: the scan writes the function of the overlay
+resident there, or of the one compiled overlay with a function at that
+address, and records the word (`bw_ovl_window_word`). Each time a compiled
+overlay loads, the recorded words into its window that it has a function
+for are bound to that function (or a mod's hook for it), as the DS calls
+whatever is resident when the word is used. ov021's encounter effect table
+needs this: its entries point at ov075's and ov078's functions, which
+share their window, and `ENCEFF_Start` loads the entry's overlay just
+before it calls through the entry. A word no overlay answers for when it
+is scanned keeps its DS value (unswapped on a big-endian host) until one
+loads; a word the game has written over since is left alone.
+
 ## Code addresses written as literals
 
 `(void *)0x021B6279` in an ov179 source is a Thumb function's address passed

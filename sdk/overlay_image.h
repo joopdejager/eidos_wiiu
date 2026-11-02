@@ -87,6 +87,26 @@ int bw_ovl_resident_at(u32 addr);
 BwDataFn bw_ovl_code_entry(u32 value);
 
 /*
+ * A code word that points into an overlay window from outside it (an
+ * overlay's data into another overlay, or the ARM9 data into an overlay),
+ * as sdk/armdata.c's scan found it: `word` is the host address of the
+ * word, `value` the DS value it held, `owner` the overlay whose data holds
+ * it (-1: the ARM9's).  On the DS such a word calls whatever overlay is
+ * resident over the address when it is called, and windows are shared
+ * (ov021's encounter effect table points at ov075's and ov078's functions,
+ * and both load at 0x021F5260 among others), so the word is bound again
+ * each time a compiled overlay with a function at that address loads.  The
+ * word holds what the scan left there now (a host function, or the DS
+ * value when no single overlay answered).  Returns 1 when it is recorded
+ * (some compiled overlay has a function there), else 0.
+ */
+int bw_ovl_window_word(u8 *word, u32 value, int owner);
+
+/* Forget the window words of `owner` (-1: the ARM9's) and of the overlays
+ * no longer resident; sdk/armdata.c calls it before it scans `owner`. */
+void bw_ovl_window_words_forget(int owner);
+
+/*
  * Put the hooks in the overlays' own stored code pointers again.
  *
  * A word in an overlay's data that holds the address of one of that
